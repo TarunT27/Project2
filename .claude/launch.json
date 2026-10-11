@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "console",
-      "runtimeExecutable": "disaster_assessor/.venv/bin/python",
-      "runtimeArgs": ["disaster_assessor/server.py"],
+      "name": "disaster-platform",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": ["DRA_NO_LOGIN=1", "disaster_assessor/.venv/bin/python", "disaster_assessor/server.py"],
       "port": 8000
     }
   ]
