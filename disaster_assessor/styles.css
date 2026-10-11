@@ -1,0 +1,58 @@
+:root {
+  --ink: #20342f;
+  --muted: #62736d;
+  --line: #dfe7e2;
+  --accent: #217468;
+}
+.block-container { max-width: 1180px; padding: 4.5rem 2.5rem 2rem; }
+.workspace-header { margin: 0 0 1.4rem; }
+.eyebrow { color: var(--accent); font-size: .72rem; font-weight: 650; letter-spacing: .12em; margin: 0 0 .6rem; }
+.workspace-header h1 { color: var(--ink); font-size: 2.3rem; font-weight: 650; line-height: 1.18; letter-spacing: -.045em; padding: 0; margin: 0 0 .65rem; }
+.workspace-header > p:last-child { color: var(--muted); font-size: .98rem; margin: 0; }
+h2, h3 { letter-spacing: -.025em; }
+h3 { font-size: 1.25rem !important; font-weight: 600 !important; }
+[data-testid="stSidebar"] { border-right: 1px solid var(--line); }
+[data-testid="stSidebarContent"] { padding-top: 1.25rem; }
+[data-testid="stSidebar"] h2 { font-size: 1.55rem; }
+[data-testid="stCaptionContainer"] { color: var(--muted); }
+[data-testid="stCaptionContainer"] p { color: #566860; }
+[data-testid="stAlert"] { border: 1px solid var(--line); border-radius: 10px; }
+[data-testid="stAlert"] p { font-size: .85rem; line-height: 1.5; }
+[data-baseweb="tab-list"] { gap: 1.6rem; border-bottom: 1px solid var(--line); margin-bottom: 1.15rem; }
+[data-baseweb="tab"] { padding: .6rem .15rem .85rem; }
+[data-baseweb="tab"] p { font-size: .93rem; font-weight: 600; }
+[data-testid="stVerticalBlockBorderWrapper"] > div { border-radius: 12px; }
+[data-testid="stFileUploaderDropzone"] { border: 1px dashed #bccdc5; border-radius: 10px; background: #f9fbf9; padding: 1.25rem; }
+[data-testid="stButton"] button, [data-testid="stDownloadButton"] button { border-radius: 8px; min-height: 2.7rem; font-weight: 550; }
+[data-testid="stMetric"] { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.15rem; }
+[data-testid="stMetricLabel"] p { font-size: .8rem; color: var(--muted); }
+[data-testid="stMetricValue"] { font-size: 1.9rem; font-weight: 600; letter-spacing: -.04em; }
+[data-testid="stExpander"] { border-color: var(--line); border-radius: 10px; }
+[data-testid="stImage"] img { border-radius: 8px; }
+.empty-state { padding: 2rem 1.4rem; border: 1px solid var(--line); border-radius: 12px; background: #fff; margin: .25rem 0 .75rem; }
+.empty-state h3 { margin: 0 0 .5rem; padding: 0; }
+.empty-state p { color: var(--muted); font-size: .93rem; margin: 0; line-height: 1.6; }
+.workflow { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 1.4rem 0 0; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+.workflow span { font-size: .8rem; color: var(--muted); }
+.workflow b { color: var(--accent); margin-right: .4rem; }
+.legend { display: flex; flex-wrap: wrap; gap: .55rem; margin: .5rem 0 1rem; }
+.legend span { font-size: .78rem; border-radius: 6px; padding: .35rem .65rem; border: 1px solid var(--line); background: white; }
+.legend .intact { border-left: 4px solid #16a34a; }
+.legend .minor { border-left: 4px solid #eab308; }
+.legend .major { border-left: 4px solid #f97316; }
+.legend .destroyed { border-left: 4px solid #dc2626; }
+.footer-note { color: var(--muted); font-size: .75rem; margin-top: 1rem; }
+@media (max-width: 760px) {
+  .block-container { padding: 4.25rem 1rem 1.5rem; }
+  .workspace-header h1 { font-size: 1.9rem; }
+  [data-baseweb="tab-list"] { gap: 1.4rem; }
+  [data-testid="stMetric"] { padding: .8rem; }
+  [data-testid="stMetricValue"] { font-size: 1.6rem; }
+  :is(.st-key-assess-summary, .st-key-map-summary, .st-key-export-summary) [data-testid="stHorizontalBlock"] { flex-wrap: nowrap; gap: .5rem; }
+  :is(.st-key-assess-summary, .st-key-map-summary, .st-key-export-summary) [data-testid="stColumn"] { min-width: 0 !important; flex: 1 1 0 !important; width: 0 !important; }
+  :is(.st-key-assess-summary, .st-key-map-summary, .st-key-export-summary) [data-testid="stMetric"] { padding: .6rem; min-height: 118px; }
+  :is(.st-key-assess-summary, .st-key-map-summary, .st-key-export-summary) [data-testid="stMetricLabel"] p { font-size: .72rem; white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
