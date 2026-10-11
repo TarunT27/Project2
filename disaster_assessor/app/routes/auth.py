@@ -31,6 +31,7 @@ def client_config():
 
     cfg = get_config()
     return {
+        "no_login": cfg.no_login,
         "tile_url": cfg.tile_url, "tile_attribution": cfg.tile_attribution,
         "integrations": {
             "osrm": bool(cfg.osrm_url), "slack": bool(cfg.slack_webhook), "webhook": bool(cfg.webhook_url),
@@ -43,6 +44,8 @@ def client_config():
 def status(request: Request):
     with db.connect() as conn:
         has_users = db.one(conn, "SELECT COUNT(*) AS n FROM users")["n"] > 0
+    if get_config().no_login:
+        return {"setup_required": False, "user": auth.public_user(auth.local_user()), "config": client_config()}
     user = auth.user_for_token(auth.request_token(request))
     return {"setup_required": not has_users, "user": auth.public_user(user), "config": client_config()}
 

@@ -217,6 +217,9 @@ async function boot() {
   $("#user-btn").textContent = (store.user.name || store.user.username).slice(0, 1).toUpperCase();
   $("#user-btn").title = `${store.user.name} · ${store.user.role}`;
   $("#logout").innerHTML = icon("logout", 19);
+  const local = !!(store.config && store.config.no_login);
+  $("#logout").hidden = local;
+  $("#local-mode").hidden = !local;
   route();
 }
 
@@ -231,6 +234,12 @@ $("#logout").addEventListener("click", async () => {
 });
 $("#user-btn").addEventListener("click", async () => {
   const { modal } = await import("./ui.js");
+  if (store.config && store.config.no_login) {
+    await modal({ title: "Local mode", submit: null, body: `<p class="muted">Sign-in is turned off (DRA_NO_LOGIN=1), so you are the built-in
+      local administrator. This only works while the server listens on localhost. Remove DRA_NO_LOGIN before sharing the app with a team
+      or putting it behind a proxy.</p>` });
+    return;
+  }
   const fd = await modal({
     title: `${store.user.name} · ${store.user.role}`, submit: "Change password",
     body: `<p class="muted">Signed in as <b>${esc(store.user.username)}</b>.</p>

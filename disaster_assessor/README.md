@@ -19,7 +19,7 @@ pip install -r requirements-demo.txt      # core platform, no PyTorch
 python server.py                          # → http://127.0.0.1:8000
 ```
 
-On the first visit you create the **administrator** account. Then create an incident, open its console and click **Run the synthetic demo** to see the whole workflow without a model.
+On the first visit you create the **administrator** account (or start with `DRA_NO_LOGIN=1 python server.py` to skip sign-in when you're the only user on this machine). Then create an incident, open its console and click **Run the synthetic demo** to see the whole workflow without a model.
 
 Python 3.11+ is required (3.12 is tested). Real model inference needs `pip install -r requirements.txt` (PyTorch + Ultralytics).
 
@@ -89,6 +89,7 @@ Weights load only from the `models/` folder, because PyTorch checkpoints can exe
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `HOST` / `PORT` | `127.0.0.1` / `8000` | bind address |
+| `DRA_NO_LOGIN` | off | `1` = single-user local mode: no sign-in, you are the built-in local admin. Only allowed on a localhost bind and only answers requests addressed to localhost; never use it behind a reverse proxy |
 | `DRA_DATA_DIR` | `./data` | database, imagery, backups |
 | `DRA_MODELS_DIR` | `./models` | allowed model weights |
 | `DRA_DEVICE` | `cpu` | `cpu`, `mps` (Apple), `cuda:0` |

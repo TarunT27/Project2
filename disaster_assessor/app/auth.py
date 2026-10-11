@@ -83,7 +83,33 @@ def request_token(request: Request):
     return request.cookies.get(COOKIE)
 
 
+_local_user_id = None
+_local_lock = threading.Lock()
+
+
+def local_user():
+    """The built-in administrator used in no-login mode (created once; its password can't be used)."""
+    global _local_user_id
+    with _local_lock, db.connect() as conn:
+        if _local_user_id is not None:
+            row = db.one(conn, "SELECT * FROM users WHERE id = ?", (_local_user_id,))
+            if row:
+                return row
+        row = db.one(conn, "SELECT * FROM users WHERE username = 'local'")
+        if not row:
+            user_id = db.insert(conn, "users", {
+                "username": "local", "name": "Local operator", "role": "admin", "created_at": db.now(),
+                "password_hash": "disabled$" + secrets.token_hex(16),  # never verifies: no-login mode only
+            })
+            db.audit(conn, user_id, "auth.local_user_created", "user", user_id)
+            row = db.one(conn, "SELECT * FROM users WHERE id = ?", (user_id,))
+        _local_user_id = row["id"]
+        return row
+
+
 def current_user(request: Request):
+    if get_config().no_login:
+        return local_user()
     user = user_for_token(request_token(request))
     if not user:
         raise HTTPException(401, "Sign in to continue.")

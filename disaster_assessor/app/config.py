@@ -8,6 +8,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1", "[::1]"}
+
+
 def _bool(name, default=False):
     value = os.environ.get(name)
     return default if value is None else value.strip().lower() in {"1", "true", "yes", "on"}
@@ -38,6 +41,9 @@ class Config:
     building_model: str = ""
     damage_model: str = ""
     allowed_origins: tuple = field(default_factory=tuple)
+    # Single-user local mode: no sign-in, everyone reaching the server is the built-in local admin.
+    # Only honoured on a loopback bind; never use it behind a reverse proxy.
+    no_login: bool = False
 
     @property
     def db_path(self):
@@ -72,4 +78,5 @@ def get_config():
         building_model=os.environ.get("DRA_BUILDING_MODEL", ""),
         damage_model=os.environ.get("DRA_DAMAGE_MODEL", ""),
         allowed_origins=tuple(o for o in os.environ.get("DRA_ALLOWED_ORIGINS", "").split(",") if o),
+        no_login=_bool("DRA_NO_LOGIN"),
     )

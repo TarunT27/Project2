@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db
-from .config import ROOT, get_config
+from .config import LOOPBACK_HOSTS, ROOT, get_config
 from .jobs import runner
 from .routes import admin, assessment, auth as auth_routes, exports, geo, incidents, operations, share
 
@@ -33,9 +33,17 @@ async def _retention_loop():
         await asyncio.sleep(24 * 3600)
 
 
+def check_startup(cfg):
+    if cfg.no_login and cfg.host not in LOOPBACK_HOSTS:
+        raise SystemExit("DRA_NO_LOGIN only works when HOST is 127.0.0.1/localhost. Remove it to expose the server.")
+    if cfg.no_login:
+        log.warning("No-login mode: anyone who can reach this server is an administrator.")
+
+
 @asynccontextmanager
 async def lifespan(_app):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    check_startup(get_config())
     db.init_db()
     runner.recover()
     task = asyncio.create_task(_retention_loop())
@@ -70,6 +78,12 @@ def _csp():
 
 @app.middleware("http")
 async def security(request: Request, call_next):
+    if get_config().no_login:
+        # Without sign-in, only accept requests addressed to this machine (blocks DNS-rebinding pages).
+        hostname = request.headers.get("host", "").rsplit(":", 1)[0] if not request.headers.get("host", "").startswith("[") \
+            else request.headers.get("host", "").split("]")[0] + "]"
+        if hostname not in LOOPBACK_HOSTS:
+            return JSONResponse({"error": "No-login mode only answers requests to localhost."}, status_code=403)
     if request.method in UNSAFE:
         origin = request.headers.get("origin")
         if origin:

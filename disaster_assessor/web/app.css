@@ -72,6 +72,7 @@ a.logo:hover { color: #000; }
 .status .dot { background: var(--yellow); box-shadow: 0 0 0 3px #e9d25b22; }
 .status.warn .dot { background: var(--major); }
 .status.ok .dot { background: var(--green); }
+.status.local .dot { background: var(--blue); box-shadow: 0 0 0 3px #5aa9e622; }
 .view-host { flex: 1; min-height: 0; overflow: auto; }
 .view-console, .view-review, .view-map, .view-tasks { overflow: hidden; }
 .card { background: var(--card); border-radius: var(--r-lg); position: relative; min-width: 0; }
