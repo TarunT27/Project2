@@ -1,6 +1,8 @@
 import io
 import json
 import tempfile
+import os
+import time
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -171,12 +173,21 @@ class AppTests(unittest.TestCase):
     def test_demo_flow_reset_and_missing_model(self):
         from streamlit.testing.v1 import AppTest
 
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        environment = patch.dict(os.environ, {"DISASTER_DB_PATH": str(Path(temporary.name) / "test.sqlite3"), "DISASTER_AUTH_MODE": "local"})
+        environment.start()
+        self.addCleanup(environment.stop)
         app = AppTest.from_file(
             str(Path(__file__).resolve().parents[1] / "app.py"), default_timeout=30
         ).run()
         self.assertEqual(len(app.exception), 0)
         next(b for b in app.button if b.label == "Load synthetic demo").click().run()
         self.assertEqual(len(app.exception), 0)
+        deadline = time.monotonic() + 10
+        while not app.session_state.assessment["processed"] and time.monotonic() < deadline:
+            time.sleep(0.05)
+            app.run()
         self.assertGreater(len(app.session_state.assessment["rows"]), 0)
         self.assertEqual(app.session_state.assessment["processed"], 3)
         next(b for b in app.button if b.label == "Clear session").click().run()

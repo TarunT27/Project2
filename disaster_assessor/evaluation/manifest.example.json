@@ -1,0 +1,14 @@
+{
+  "split": "test",
+  "images": [
+    {
+      "image": "images/example.jpg",
+      "width": 1200,
+      "height": 800,
+      "annotations": [
+        {"label": "Major Damage", "bbox": [100, 120, 420, 650]},
+        {"label": "No Damage", "bbox": [550, 140, 900, 620]}
+      ]
+    }
+  ]
+}

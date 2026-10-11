@@ -8,9 +8,12 @@ from .mock_data import SEVERITY
 EXPORT_COLUMNS = [
     "priority_rank",
     "observation_id",
+    "image_id",
+    "source_fingerprint",
     "source_file",
     "frame_seconds",
     "damage_class",
+    "predicted_class",
     "confidence",
     "latitude",
     "longitude",
@@ -23,6 +26,12 @@ EXPORT_COLUMNS = [
     "model",
     "confidence_threshold",
     "review_status",
+    "review_notes",
+    "reviewed_by",
+    "reviewed_at_utc",
+    "original_latitude",
+    "original_longitude",
+    "original_location_source",
     "bbox",
 ]
 

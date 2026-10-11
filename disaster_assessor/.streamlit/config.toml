@@ -7,5 +7,8 @@ textColor = "#20342f"
 font = "sans serif"
 [server]
 maxUploadSize = 200
+address = "127.0.0.1"
+enableXsrfProtection = true
+enableCORS = true
 [browser]
 gatherUsageStats = false

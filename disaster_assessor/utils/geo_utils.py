@@ -173,7 +173,7 @@ def generate_damage_map(df_results, center=DEFAULT_CENTER, *, show_tiles=True):
             fill=True,
             fill_color=COLORS[label],
             fill_opacity=0.9,
-            tooltip=f"{label} · {confidence:.0%} · {tag}",
+            tooltip=f"{label} · {confidence:.0%} · {tag} · Observation {html.escape(str(row.get("observation_id", "unknown")))}",
             popup=folium.Popup(content, max_width=300),
         ).add_to(cluster)
     folium.LayerControl().add_to(result)

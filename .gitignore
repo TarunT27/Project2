@@ -8,3 +8,10 @@ __pycache__/
 .DS_Store
 *.tsbuildinfo
 /outputs/
+disaster_assessor/data/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+disaster_assessor/evaluation/report*.json
+disaster_assessor/evaluation/images/
+disaster_assessor/evaluation/manifest.json

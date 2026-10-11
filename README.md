@@ -1,6 +1,6 @@
 # Rapid Disaster Assessment & Rescue Planner
 
-A Python/Streamlit MVP for image and sampled-video damage observations, approximate geospatial mapping, and priority-review exports.
+A Python/Streamlit incident workspace with saved assessment history, editable reviews and audit trails, source-linked mapping, background processing with cancellation/retries, review-priority exports, OIDC access controls, and a model evaluation workflow.
 
 ```sh
 cd disaster_assessor

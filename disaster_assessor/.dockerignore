@@ -1,0 +1,14 @@
+.venv
+__pycache__
+.pytest_cache
+.git
+data
+*.sqlite3*
+.streamlit/secrets.toml
+models
+*.pt
+*.onnx
+evaluation/images
+evaluation/manifest.json
+evaluation/report*.json
+design/*.png

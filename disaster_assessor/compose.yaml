@@ -1,0 +1,19 @@
+services:
+  disaster-review:
+    build:
+      context: .
+      args:
+        INSTALL_REAL_MODEL: ${INSTALL_REAL_MODEL:-false}
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      DISASTER_AUTH_MODE: oidc
+      DISASTER_ADMIN_EMAILS: ${DISASTER_ADMIN_EMAILS:?Set the administrator sign-in email}
+      DISASTER_ALLOWED_EMAILS: ${DISASTER_ALLOWED_EMAILS:-}
+    volumes:
+      - workspace:/app/data
+      - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+      - ./models:/app/models:ro
+    restart: unless-stopped
+volumes:
+  workspace:
