@@ -1,6 +1,11 @@
 # ⚡ Rapid Disaster Assessment & Rescue Planner
 
-A runnable, single-page Streamlit MVP for visual damage review, approximate geospatial situational awareness, and severity-ranked exports. Three tabs: **Assess** (single/batch images and video), **Map** (interactive observations), and **Export** (CSV/GeoJSON).
+A runnable MVP for visual damage review, approximate geospatial situational awareness, and severity-ranked exports. It has two front ends over one shared pipeline:
+
+- **Mission console** (`python server.py`): a FastAPI backend with a hand-built dark dashboard in `web/`, modeled on a drone ground-control UI.
+- **Classic Streamlit app** (`streamlit run app.py`): three tabs, **Assess**, **Map** and **Export**.
+
+![Console](design/console-desktop.png)
 
 ## 1. Install and run
 
@@ -10,26 +15,56 @@ Python 3.11 or 3.12 recommended; verified on Python 3.12 / macOS ARM64.
 cd disaster_assessor
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-streamlit run app.py
+pip install -r requirements-demo.txt
+python server.py          # mission console → http://127.0.0.1:8000
+streamlit run app.py      # classic Streamlit UI (optional)
 ```
 
-Windows activation: `.venv\Scripts\activate`.
+Windows activation: `.venv\Scripts\activate`. The server binds to `127.0.0.1` by default. Set `HOST` / `PORT` to change that, and add authentication before exposing it.
 
-**Fastest demo-only setup:** replace the installation command with `pip install -r requirements-demo.txt`. This skips Torch, Torchvision, Ultralytics, and GeoPandas; the complete demo, video sampling, maps, and exports still work. The full requirements file includes all requested dependencies. `requirements-tested.txt` captures the complete resolved versions tested locally; platform-specific wheels, especially GPU Torch builds, may differ. For CUDA installations follow the official PyTorch platform-specific installer.
+`requirements-demo.txt` covers the complete demo, uploads, video sampling, maps and exports without Torch. For real YOLO inference, install `requirements.txt` instead; it adds Ultralytics, Torch, Torchvision and GeoPandas. `requirements-tested.txt` captures resolved versions from an earlier local test. For CUDA, follow the official PyTorch platform-specific installer.
 
-Open the printed localhost URL, then click **Load synthetic demo**. No API key, account, model download, or external image service is required for this flow.
+Open the app, then click **Load synthetic demo**. This flow needs no API key, account, model download or external image service.
+
+### Console at a glance
+
+| Area | What it does |
+| --- | --- |
+| Icon rail | Console · Rescue map · Export · Settings · Data & privacy · Add imagery · Clear session |
+| Viewport | Selected image with live SVG detection boxes, a rule-of-thirds grid, and a HUD showing mode, resolution, confidence level, per-class counts and a luminance histogram. Drag and drop files anywhere on it. |
+| Unit card | Detector in use, high-priority share, a live **confidence filter**, toggles for grid/HUD/labels, and **Run assessment** |
+| Telemetry | Photo/video filter, thumbnail strip, mini-map, run stats, and a severity list (click a class to hide or show it). The **D-pad** steps through images (◀ ▶), nudges the confidence filter (▲ ▼), and runs (center). |
+| Severity dial | The outer ring shows the class distribution. The needle shows the severity index (mean of Intact 0 … Destroyed 3). The percentage breakdown and reference coordinates are printed below. |
+| Rescue map | Dark OpenStreetMap basemap. One marker per capture point, colored by its most severe observation. Clusters use their worst child's color. The ranked list on the right flies to a point and opens its popup. |
+| Export | Summary cards, CSV and GeoJSON downloads, and the ranked priority queue |
+
+Keyboard shortcuts: ← → switch images, `B` boxes, `L` labels, `G` grid, `H` HUD, `Esc` closes drawers.
+
+The confidence filter is applied live in the browser, and the CSV/GeoJSON downloads use the same filter (`?min_conf=`). Each exported row records the effective threshold. The filter can't recover detections below the threshold the run used; the console prompts you to rerun in that case.
+
+### HTTP API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/config` | Classes, colors, default center, limits |
+| POST | `/api/demo` | Assess the generated demo scenes |
+| POST | `/api/assess` | Multipart `files` plus `mode`, `confidence`, `model_path`, `device`, `lat`, `lon`, `override`, `interval`, `max_frames` |
+| GET | `/api/runs/{id}/export.csv` · `.geojson` | Severity-ranked exports, optional `min_conf` |
+
+Runs live in memory (the last 10) and are never written to disk.
 
 ## 2. Source files in requested order
 
+0. `server.py` + `web/` (`index.html`, `app.css`, `app.js`): mission-console backend and frontend.
 1. `requirements.txt` + `requirements-demo.txt`: full and minimal installations.
 2. `utils/geo_utils.py`: EXIF DMS parsing, timestamp, explicit provenance, demo fallback, Folium map/popups.
 3. `utils/detector.py`: `DamageDetector(use_mock=True).predict(image)`; real YOLO integration and PIL box rendering.
 4. `utils/mock_data.py`: deterministic synthetic detections and generated test scenes.
-5. `app.py`: three-tab UI, upload/run controls, video handling, original/annotated views, class percentages, map and exports.
-6. `utils/media.py`: bounded OpenCV frame sampling; temporary files deleted after decoding.
-7. `utils/exports.py`: severity ranking, CSV formula escaping, GeoJSON `[longitude, latitude]` points.
-8. `tests/test_core.py`: unit/integration tests including Streamlit AppTest.
+5. `utils/pipeline.py`: the shared assessment pipeline (limits, EXIF/override location, inference, annotation) used by both front ends.
+6. `app.py`: Streamlit three-tab UI, upload/run controls, video handling, original/annotated views, class percentages, map and exports.
+7. `utils/media.py`: bounded OpenCV frame sampling; temporary files deleted after decoding.
+8. `utils/exports.py`: severity ranking, CSV formula escaping, GeoJSON `[longitude, latitude]` points.
+9. `tests/test_core.py` + `tests/test_server.py`: unit/integration tests, including the Streamlit AppTest and FastAPI endpoint tests.
 
 ## 3. Use the dashboard
 
@@ -87,13 +122,13 @@ OpenStreetMap tiles and Folium JavaScript/CSS are fetched externally. The map re
 
 ```sh
 python -m unittest discover -s tests -v
-python -m compileall -q app.py utils tests
+python -m compileall -q app.py server.py utils tests
 pip check
 ```
 
-Nine tests cover deterministic mock mode and thresholds, EXIF south/west parsing and timestamps, missing-GPS provenance, coordinate validation, export rank/order/GeoJSON and spreadsheet escaping, popup HTML escaping, bounded video sampling, rejection of generic YOLO class names, real-adapter mapping with a mocked model, and the Streamlit demo/reset/real-mode UI flow.
+Fourteen tests cover deterministic mock mode and thresholds, EXIF south/west parsing and timestamps, missing-GPS provenance, coordinate validation, export rank/order/GeoJSON and spreadsheet escaping, popup HTML escaping, bounded video sampling, rejection of generic YOLO class names, real-adapter mapping with a mocked model, the Streamlit demo/reset/real-mode UI flow, and the console API: demo run, image upload, partial-failure batches, filtered CSV/GeoJSON exports, and rejection of missing models, oversized batches, bad file types and invalid coordinates.
 
-Completed locally: 9/9 tests; Python compilation; dependency compatibility check. Full requested dependencies installed. Browser verification: synthetic assessment creates original/annotated previews and severity percentages, map tab displays mapped observations, export tab exposes CSV/GeoJSON downloads. A damage-trained checkpoint was **not supplied or validated**; real model output quality and GPU performance remain untested. No FPS/latency or emergency readiness claims are made.
+Completed locally: 14/14 tests; Python compilation; dependency compatibility check. Full requested dependencies installed. Browser verification: synthetic assessment creates original/annotated previews and severity percentages, map tab displays mapped observations, export tab exposes CSV/GeoJSON downloads. A damage-trained checkpoint was **not supplied or validated**; real model output quality and GPU performance remain untested. No FPS/latency or emergency readiness claims are made.
 
 ## 8. Deployment
 

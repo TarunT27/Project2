@@ -1,33 +1,18 @@
 """Run: streamlit run app.py. Demo mode needs no Torch or model download."""
 
-from datetime import datetime, timezone
-import hashlib
-import io
 from pathlib import Path
-import warnings
 
 import pandas as pd
-from PIL import Image, ImageOps, UnidentifiedImageError
 import streamlit as st
 from streamlit_folium import st_folium
 
-from utils.detector import DamageDetector, annotate_image
+from utils.detector import DamageDetector
 from utils.exports import export_csv, export_geojson, priority_list
-from utils.geo_utils import (
-    DEFAULT_CENTER,
-    extract_gps_from_exif,
-    generate_damage_map,
-    thumbnail_data_url,
-    valid_coordinate,
-)
-from utils.media import sample_video_frames
-from utils.mock_data import CLASSES, COLORS, sample_images
+from utils.geo_utils import DEFAULT_CENTER, generate_damage_map, valid_coordinate
+from utils.mock_data import CLASSES
+from utils.pipeline import Settings, empty_batch, run_assessment
 
 st.set_page_config(page_title="Disaster Review", page_icon=":material/public:", layout="wide")
-Image.MAX_IMAGE_PIXELS = 30_000_000
-warnings.simplefilter("error", Image.DecompressionBombWarning)
-VIDEO_TYPES = {".mp4", ".mov", ".avi", ".mkv"}
-MAX_OBSERVATIONS = 2000
 
 st.markdown(f"<style>{Path(__file__).with_name('styles.css').read_text()}</style>", unsafe_allow_html=True)
 st.markdown(
@@ -37,13 +22,7 @@ st.markdown(
 )
 
 if "assessment" not in st.session_state:
-    st.session_state.assessment = {
-        "rows": [],
-        "images": [],
-        "errors": [],
-        "processed": 0,
-        "demo": True,
-    }
+    st.session_state.assessment = empty_batch()
 
 with st.sidebar:
     st.markdown('<p class="eyebrow">DISASTER REVIEW</p>', unsafe_allow_html=True)
@@ -88,13 +67,7 @@ with st.sidebar:
         st.caption("Frames may show the same building. GPS telemetry and tracking are not inferred.")
     st.divider()
     if st.button("Clear session", width="stretch"):
-        st.session_state.assessment = {
-            "rows": [],
-            "images": [],
-            "errors": [],
-            "processed": 0,
-            "demo": use_mock,
-        }
+        st.session_state.assessment = empty_batch(use_mock)
         st.rerun()
 
 if use_mock:
@@ -115,15 +88,15 @@ def load_detector(path, modified_ns, threshold, selected_device):
 
 def process_inputs(uploads, built_in_demo=False):
     # Commit one complete run at the end. Reruns never append duplicate observations.
-    batch = {
-        "rows": [],
-        "images": [],
-        "errors": [],
-        "processed": 0,
-        "demo": use_mock,
-        "threshold": confidence,
-        "model": "synthetic-demo" if use_mock else Path(model_path).name,
-    }
+    settings = Settings(
+        use_mock=use_mock,
+        confidence=confidence,
+        model_name="synthetic-demo" if use_mock else Path(model_path).name,
+        center=(lat, lon),
+        override=override,
+        interval=interval,
+        max_frames=max_frames,
+    )
     try:
         detector = (
             DamageDetector(True, confidence_threshold=confidence)
@@ -139,99 +112,15 @@ def process_inputs(uploads, built_in_demo=False):
         st.error(f"Could not initialize the detector: {exc}")
         return False
     progress = st.progress(0, text="Preparing inputs…")
-    run_time = datetime.now(timezone.utc).isoformat()
-    sources = list(sample_images()) if built_in_demo else uploads
-    total_samples = 0
-    for file_index, source in enumerate(sources):
-        name = source[0] if built_in_demo else source.name
-        frame_iterator = None
-        try:
-            if built_in_demo:
-                frames = [(None, source[1])]
-            elif Path(name).suffix.lower() in VIDEO_TYPES:
-                frame_iterator = sample_video_frames(
-                    source.getvalue(), Path(name).suffix.lower(), interval, max_frames
-                )
-                frames = frame_iterator
-            else:
-                with Image.open(io.BytesIO(source.getvalue())) as loaded:
-                    loaded.load()
-                    if loaded.width * loaded.height > 30_000_000:
-                        raise ValueError("Image exceeds 30 megapixels")
-                    frames = [(None, loaded.copy())]
-            for frame_seconds, original in frames:
-                if total_samples >= 60 or len(batch["rows"]) >= MAX_OBSERVATIONS:
-                    raise ValueError(
-                        "Run limit reached (60 images/frames or 2,000 observations). Upload a smaller batch."
-                    )
-                location = extract_gps_from_exif(
-                    original,
-                    demo_fallback=use_mock,
-                    center=(lat, lon),
-                    seed=f"{name}:{frame_seconds}",
-                )
-                if override:
-                    location.update(
-                        latitude=lat,
-                        longitude=lon,
-                        location_source="manual_reference",
-                        location_is_synthetic=False,
-                    )
-                oriented = ImageOps.exif_transpose(original).convert("RGB")
-                oriented.thumbnail((1600, 1600))
-                predictions = detector.predict(oriented)
-                total_samples += 1
-                annotated = annotate_image(oriented, predictions)
-                preview = thumbnail_data_url(annotated)
-                image_id = hashlib.sha256(
-                    (name + str(frame_seconds)).encode() + oriented.tobytes()
-                ).hexdigest()[:16]
-                batch["images"].append(
-                    {
-                        "label": name
-                        + (
-                            f" · {frame_seconds:.1f}s"
-                            if frame_seconds is not None
-                            else ""
-                        ),
-                        "original": thumbnail_data_url(oriented, (1200, 900)),
-                        "annotated": thumbnail_data_url(annotated, (1200, 900)),
-                        "detections": len(predictions),
-                        "location_source": location["location_source"],
-                    }
-                )
-                batch["processed"] += 1
-                for index, detection in enumerate(predictions):
-                    if len(batch["rows"]) >= MAX_OBSERVATIONS:
-                        break
-                    batch["rows"].append(
-                        {
-                            "observation_id": f"{file_index}-{image_id}-{index}",
-                            "source_file": name,
-                            "frame_seconds": frame_seconds,
-                            "damage_class": detection["label"],
-                            "confidence": detection["confidence"],
-                            "bbox": detection["bbox"],
-                            "scope": detection["scope"],
-                            "is_demo": use_mock,
-                            "model": batch["model"],
-                            "confidence_threshold": confidence,
-                            "review_status": "not_reviewed",
-                            "assessed_at_utc": run_time,
-                            "preview": preview,
-                            **location,
-                        }
-                    )
-        except Exception as exc:
-            batch["errors"].append(f"{name}: {exc}")
-        finally:
-            if frame_iterator is not None:
-                frame_iterator.close()
-        progress.progress(
-            (file_index + 1) / len(sources),
-            text=f"Processed {file_index+1}/{len(sources)} inputs",
-        )
-    st.session_state.assessment = batch
+    st.session_state.assessment = run_assessment(
+        detector,
+        [] if built_in_demo else [(f.name, f.getvalue()) for f in uploads],
+        settings,
+        built_in_demo=built_in_demo,
+        progress=lambda done, total: progress.progress(
+            done / total, text=f"Processed {done}/{total} inputs"
+        ),
+    )
     progress.empty()
     return True
 

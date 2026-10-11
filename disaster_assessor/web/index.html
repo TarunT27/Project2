@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rapid Disaster Assessment</title>
+  <meta name="description" content="Assess post-disaster imagery, map damage observations, and export a severity-ranked review list.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23000'/%3E%3Cpath d='M18 4 8 18h7l-2 10 11-15h-7z' fill='%23e9d25b'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app">
+  <!-- Icon rail -->
+  <nav class="rail" aria-label="Primary">
+    <div class="logo" title="Rapid Disaster Assessment">DRA</div>
+    <div class="rail-group">
+      <button class="rail-btn active" data-view="console" aria-label="Console" title="Console">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9.5 14.5 1.6-4.4 4.4-1.6-1.6 4.4z"/></svg>
+      </button>
+      <button class="rail-btn" data-view="map" aria-label="Rescue map" title="Rescue map">
+        <svg viewBox="0 0 24 24"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>
+      </button>
+      <button class="rail-btn" data-view="export" aria-label="Export" title="Export">
+        <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 17v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2"/></svg>
+      </button>
+    </div>
+    <div class="rail-group">
+      <button class="rail-btn" id="open-settings" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+      <button class="rail-btn" id="open-privacy" aria-label="Data and privacy" title="Data &amp; privacy">
+        <svg viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.2 3 7.6 7 9 4-1.4 7-4.8 7-9V6z"/></svg>
+      </button>
+      <button class="rail-btn" id="open-files" aria-label="Add imagery" title="Add imagery">
+        <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="m5 16 4-4 3 3 3-3 4 4"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>
+      </button>
+    </div>
+    <div class="rail-foot">
+      <div class="mode-badge" id="mode-badge" title="Inference mode">D</div>
+      <button class="rail-btn" id="clear-session" aria-label="Clear session" title="Clear session">
+        <svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="brand"><span class="bolt">⚡</span> Rapid Disaster Assessment <span class="muted">&amp; Rescue Planner</span></div>
+      <div class="status" id="status-chip"><span class="dot"></span><span class="long">Demo workspace</span><span class="short">Demo</span></div>
+    </header>
+
+    <!-- ===== Console view ===== -->
+    <section class="view view-console active" data-view="console">
+      <div class="card viewport" id="viewport">
+        <div class="vp-backdrop" id="vp-backdrop"></div>
+        <svg class="vp-stage" id="vp-stage" preserveAspectRatio="xMidYMid meet" aria-label="Assessed image with detection boxes" role="img"></svg>
+        <div class="vp-grid" id="vp-grid" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+          <div class="reticle"><i></i><b></b><i></i></div>
+        </div>
+
+        <aside class="hud" id="hud">
+          <button class="hud-chip" id="hud-mode">DEMO</button>
+          <p class="hud-res"><span class="yellow" id="hud-res">—</span> · <span id="hud-frames">0 frames</span></p>
+          <p class="hud-label">CONFIDENCE</p>
+          <div class="hud-level"><div class="track"><div class="fill" id="hud-level"></div></div><span id="hud-level-val">50%</span></div>
+          <div class="hud-chips" id="hud-classes"></div>
+          <div class="hud-histo">
+            <span class="histo-label">LUMA</span>
+            <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+            <svg id="histo" viewBox="0 0 100 40" preserveAspectRatio="none"><path d=""/></svg>
+          </div>
+        </aside>
+
+        <div class="vp-tr">
+          <button class="vp-btn red" id="toggle-boxes" aria-pressed="true" title="Show / hide detection boxes (B)">
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/><path d="M5 9h3M16 5v3"/></svg>
+          </button>
+          <div class="vp-pill"><span class="rec"></span><span id="obs-chip">00 OBS</span></div>
+        </div>
+
+        <div class="vp-bl" id="vp-caption"></div>
+        <div class="vp-br">
+          <span class="pager" id="pager"></span>
+        </div>
+
+        <!-- Empty / drop state -->
+        <div class="dropzone" id="dropzone">
+          <div class="drop-inner">
+            <div class="drop-icon"><svg viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></div>
+            <h2>Drop drone footage or photos</h2>
+            <p>JPG, PNG, WebP, TIFF, MP4, MOV · up to 20 files / 200 MB.<br>Processed on this machine.</p>
+            <div class="drop-actions">
+              <button class="btn primary" id="browse">Browse files</button>
+              <button class="btn ghost" id="load-demo">Load synthetic demo</button>
+            </div>
+          </div>
+        </div>
+        <div class="scanning" id="scanning" hidden>
+          <div class="scanline"></div>
+          <div class="scan-text"><span id="scan-text">Assessing…</span><div class="scan-bar"><i id="scan-bar"></i></div></div>
+        </div>
+      </div>
+
+      <div class="card unit">
+        <div class="unit-head">
+          <div>
+            <h3 id="unit-title">Synthetic detector</h3>
+            <p class="sub" id="unit-sub">Demo boxes · no model loaded</p>
+          </div>
+          <svg class="drone" viewBox="0 0 64 28" aria-hidden="true"><path d="M8 9h14M42 9h14M15 9v4M49 9v4M20 15h24l-4 6H24z"/><path d="M24 21l-6 5M40 21l6 5M32 15v-3"/></svg>
+        </div>
+        <div class="unit-row">
+          <div><p class="row-title">High-priority</p><p class="sub" id="high-sub">Major + Destroyed</p></div>
+          <span class="big yellow" id="high-pct">—</span>
+        </div>
+        <div class="unit-row stack">
+          <div class="row-line"><p class="row-title">Confidence filter</p><span class="val" id="conf-val">50%</span></div>
+          <input type="range" id="conf" min="0" max="1" step="0.05" value="0.5" aria-label="Confidence threshold">
+          <p class="hint" id="conf-hint"></p>
+        </div>
+        <div class="divider"></div>
+        <div class="unit-row knob-row">
+          <span class="knob" title="Mapped observations"><svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/></svg></span>
+          <div class="mini-track"><div class="mini-fill" id="mapped-fill"></div><i class="mini-thumb" id="mapped-thumb"></i></div>
+          <span class="knob val" id="mapped-val">0</span>
+        </div>
+        <div class="round-row">
+          <button class="round on" id="toggle-grid" aria-pressed="true" title="Grid overlay (G)"><svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M9 4v16M15 4v16"/></svg><span>GRID</span></button>
+          <button class="round on" id="toggle-hud" aria-pressed="true" title="HUD panel (H)"><svg viewBox="0 0 24 24"><path d="M4 5h6v14H4zM14 5h6v6h-6z"/></svg><span>HUD</span></button>
+          <button class="round on" id="toggle-labels" aria-pressed="true" title="Box labels (L)"><svg viewBox="0 0 24 24"><path d="M4 12V5a1 1 0 0 1 1-1h7l8 8-8 8z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg><span>LBL</span></button>
+        </div>
+        <button class="btn primary wide" id="run" disabled>Run assessment</button>
+        <p class="queue" id="queue">No files queued</p>
+      </div>
+
+      <div class="card telemetry">
+        <div class="tele-head">
+          <div class="segmented" role="tablist" aria-label="Input type">
+            <button class="seg active" data-filter="all" role="tab">All</button>
+            <button class="seg" data-filter="image" role="tab"><svg viewBox="0 0 24 24"><path d="M4 7h3l2-2h6l2 2h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Photo</button>
+            <button class="seg" data-filter="video" role="tab"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>Video</button>
+          </div>
+          <div class="strip" id="strip" aria-label="Images"></div>
+          <div class="quick">
+            <a class="round sm" id="quick-csv" title="Download priority CSV" aria-disabled="true">CSV</a>
+            <a class="round sm" id="quick-geo" title="Download GeoJSON" aria-disabled="true">GEO</a>
+          </div>
+        </div>
+        <div class="tele-body">
+          <div class="minimap" id="minimap"><span class="minimap-empty" id="minimap-empty">NO FIX</span></div>
+          <dl class="stats">
+            <div><dt>OBSERVATIONS</dt><dd id="s-total">0</dd></div>
+            <div><dt>THRESHOLD</dt><dd id="s-threshold">50%</dd></div>
+            <div><dt>MAPPED</dt><dd id="s-mapped">0</dd></div>
+            <div><dt>MODEL</dt><dd id="s-model">—</dd></div>
+            <div><dt>IMAGES / FRAMES</dt><dd id="s-frames">0</dd></div>
+            <div><dt>LOCATION</dt><dd id="s-location">—</dd></div>
+          </dl>
+          <div class="sevlist">
+            <dt>SEVERITY</dt>
+            <ul id="sevlist"></ul>
+          </div>
+          <div class="dpad" aria-label="Navigator">
+            <button class="dp up" id="dp-up" aria-label="Raise confidence filter"><svg viewBox="0 0 24 24"><path d="m7 14 5-5 5 5"/></svg></button>
+            <span class="dp-label top">conf +</span>
+            <button class="dp left" id="dp-left" aria-label="Previous image"><svg viewBox="0 0 24 24"><path d="m14 7-5 5 5 5"/></svg></button>
+            <button class="dp-center" id="dp-center" aria-label="Run assessment">RUN</button>
+            <button class="dp right" id="dp-right" aria-label="Next image"><svg viewBox="0 0 24 24"><path d="m10 7 5 5-5 5"/></svg></button>
+            <span class="dp-label bottom">conf −</span>
+            <button class="dp down" id="dp-down" aria-label="Lower confidence filter"><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card dial">
+        <div class="si-chip" id="si-chip">SI 0.00</div>
+        <svg id="dial" viewBox="0 0 220 220" aria-label="Severity distribution dial" role="img"></svg>
+        <div class="dial-legend" id="dial-legend"></div>
+        <p class="coords" id="coords">—</p>
+      </div>
+    </section>
+
+    <!-- ===== Map view ===== -->
+    <section class="view view-map" data-view="map">
+      <div class="card map-card">
+        <div id="bigmap"></div>
+        <div class="map-overlay">
+          <div class="legend" id="map-legend"></div>
+          <div class="segmented small" id="tile-switch">
+            <button class="seg active" data-tiles="dark">Dark</button>
+            <button class="seg" data-tiles="osm">Streets</button>
+            <button class="seg" data-tiles="none">Off</button>
+          </div>
+        </div>
+        <div class="map-empty" id="map-empty">
+          <h2>Your map starts with imagery</h2>
+          <p>Run an assessment to place observations here.</p>
+        </div>
+      </div>
+      <div class="card side-list">
+        <div class="side-head">
+          <h3>Rescue priority</h3>
+          <p class="sub" id="map-sub">Most severe first · select to locate</p>
+        </div>
+        <ol class="obs-list" id="obs-list"></ol>
+        <p class="fine">Markers show the camera or reference position, not a verified building location. Multiple boxes from one image share a point.</p>
+      </div>
+    </section>
+
+    <!-- ===== Export view ===== -->
+    <section class="view view-export" data-view="export">
+      <div class="export-top">
+        <div class="card metric"><p class="m-label">Buildings assessed</p><p class="m-value" id="e-total">0</p><p class="sub">Observations, not unique structures</p></div>
+        <div class="card metric"><p class="m-label">High-priority reviews</p><p class="m-value yellow" id="e-high">0</p><p class="sub">Major damage + destroyed</p></div>
+        <div class="card metric"><p class="m-label">Mapped</p><p class="m-value" id="e-mapped">0</p><p class="sub">With valid coordinates</p></div>
+        <a class="card dl" id="dl-csv" aria-disabled="true">
+          <span class="dl-icon">CSV</span>
+          <span><b>Rescue priority list</b><span class="sub">All observations, ranked by severity</span></span>
+        </a>
+        <a class="card dl" id="dl-geo" aria-disabled="true">
+          <span class="dl-icon blue">GEO</span>
+          <span><b>GeoJSON for GIS</b><span class="sub">Mapped points only, [lon, lat]</span></span>
+        </a>
+      </div>
+      <div class="card table-card">
+        <div class="side-head row">
+          <h3>Priority queue</h3>
+          <p class="sub" id="export-sub">Run an assessment to build the queue.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th></th><th>Damage</th><th>Score</th><th>Source</th><th>Location</th><th>Coordinates</th><th>Status</th></tr></thead>
+            <tbody id="queue-body"></tbody>
+          </table>
+        </div>
+        <p class="fine">Severity orders the review queue. It does not provide travel directions, confirm occupancy, or confirm safe entry. Every exported row keeps demo status, model, threshold, and location provenance.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Settings drawer -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="settings" aria-label="Settings" aria-hidden="true">
+  <div class="drawer-head"><h3>Settings</h3><button class="icon-btn" data-close aria-label="Close settings">✕</button></div>
+  <p class="sub">Applies to the next run.</p>
+
+  <p class="group-label">INFERENCE</p>
+  <div class="segmented full" id="mode-switch">
+    <button class="seg active" data-mode="demo">Demo · synthetic</button>
+    <button class="seg" data-mode="real">Real · YOLO weights</button>
+  </div>
+  <div id="real-fields" hidden>
+    <label class="field">Damage model (.pt path)<input id="model-path" placeholder="models/damage_best.pt" autocomplete="off"></label>
+    <label class="field">Device
+      <select id="device"><option value="cpu">CPU</option><option value="mps">Apple GPU (mps)</option><option value="cuda:0">CUDA</option></select>
+    </label>
+    <p class="note warn">Weights must contain exactly: No Damage, Minor Damage, Major Damage, Destroyed. Generic yolov8n.pt cannot classify damage. Load only trusted files.</p>
+  </div>
+
+  <p class="group-label">LOCATION</p>
+  <label class="switch"><input type="checkbox" id="override"><span></span>Use one manual reference point for all inputs</label>
+  <div class="two">
+    <label class="field">Latitude<input id="lat" type="number" step="0.0001" min="-90" max="90"></label>
+    <label class="field">Longitude<input id="lon" type="number" step="0.0001" min="-180" max="180"></label>
+  </div>
+  <p class="note">EXIF GPS is used when present. Demo runs simulate positions near this point; real runs leave GPS-less images unmapped unless the override is on.</p>
+
+  <p class="group-label">VIDEO</p>
+  <label class="field">Seconds between sampled frames <output id="interval-out">3</output><input type="range" id="interval" min="1" max="30" value="3"></label>
+  <label class="field">Maximum frames per video <output id="frames-out">8</output><input type="range" id="max-frames" min="1" max="30" value="8"></label>
+</aside>
+
+<aside class="drawer" id="privacy" aria-label="Data and privacy" aria-hidden="true">
+  <div class="drawer-head"><h3>Data &amp; privacy</h3><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+  <p class="note">Uploads are processed in memory on the machine running this server. The server keeps the last 10 runs in memory only and writes nothing to disk except short-lived temp files for video decoding.</p>
+  <p class="note">OpenStreetMap tiles are requested for the visible region. Image files are never sent to them.</p>
+  <p class="note">The server binds to localhost and has no authentication. Add access control before exposing it on a network: imagery and EXIF can reveal sensitive locations.</p>
+  <p class="note">Detections in demo mode are synthetic. Real-model outputs are unverified and need review by qualified personnel.</p>
+</aside>
+
+<input type="file" id="file-input" multiple hidden accept=".jpg,.jpeg,.png,.webp,.tif,.tiff,.mp4,.mov,.avi,.mkv">
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
