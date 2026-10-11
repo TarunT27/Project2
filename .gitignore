@@ -8,3 +8,6 @@ __pycache__/
 .DS_Store
 *.tsbuildinfo
 /outputs/
+disaster_assessor/data/
+disaster_assessor/datasets/
+disaster_assessor/runs/

@@ -27,9 +27,9 @@ EXPORT_COLUMNS = [
 ]
 
 
-def priority_list(df):
+def priority_list(df, columns=EXPORT_COLUMNS):
     if df.empty:
-        return pd.DataFrame(columns=EXPORT_COLUMNS)
+        return pd.DataFrame(columns=columns)
     ranked = df.copy()
     ranked["severity"] = ranked["damage_class"].map(SEVERITY)
     ranked = ranked.sort_values(
@@ -38,11 +38,11 @@ def priority_list(df):
         kind="stable",
     ).reset_index(drop=True)
     ranked["priority_rank"] = range(1, len(ranked) + 1)
-    return ranked.reindex(columns=EXPORT_COLUMNS)
+    return ranked.reindex(columns=columns)
 
 
-def export_csv(df):
-    output = priority_list(df).copy()
+def export_csv(df, columns=EXPORT_COLUMNS):
+    output = priority_list(df, columns).copy()
     # Filenames are untrusted; avoid spreadsheet formula execution on opening CSV.
     for col in output.select_dtypes(include="object").columns:
         output[col] = output[col].map(
@@ -56,9 +56,9 @@ def export_csv(df):
     return output.to_csv(index=False).encode("utf-8-sig")
 
 
-def export_geojson(df):
+def export_geojson(df, columns=EXPORT_COLUMNS):
     features = []
-    for row in priority_list(df).to_dict("records"):
+    for row in priority_list(df, columns).to_dict("records"):
         if not valid_coordinate(row.get("latitude"), row.get("longitude")):
             continue
         properties = {
