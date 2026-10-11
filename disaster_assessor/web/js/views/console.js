@@ -319,7 +319,7 @@ function renderUnit() {
 }
 
 function modelLine(p) {
-  if (mode(p) === "demo") return claudeReady() ? "Synthetic boxes · switch to Claude under SET" : "Synthetic boxes · add ANTHROPIC_API_KEY for Claude";
+  if (mode(p) === "demo") return claudeReady() ? "Synthetic boxes · switch to Claude under SET" : "Synthetic boxes · connect Claude to enable vision";
   if (mode(p) === "claude") return "Finds buildings, classifies damage, explains why";
   if (p.mode === "single") return `${p.model || "choose a model"} · ${(p.device || "cpu").toUpperCase()}`;
   return `${p.building_model || "building?"} → ${p.damage_model || "damage?"}`;
@@ -336,7 +336,7 @@ async function runSettings() {
       </div>
       <p class="note ${info.claude_detect ? "" : "warn"}">${info.claude_detect
         ? `Claude vision (${esc(info.claude_model || "")}) finds each building, draws a box, picks a damage class and explains the visible evidence. Images are sent to the Anthropic API; large aerial mosaics are split into overlapping tiles. Estimated cost: roughly 5–15¢ per photo, ~50¢ per aerial mosaic; each run records its actual cost.`
-        : "Claude vision is off: add ANTHROPIC_API_KEY to disaster_assessor/.env and restart the server."}</p>
+        : "Claude vision is off. Give the server Claude API access (ANTHROPIC_API_KEY in disaster_assessor/.env, or sign in once with <code>ant auth login</code>) and restart it."}</p>
       ${info.models.length ? "" : `<p class="note warn">No model weights in the models folder yet. Train one (see training/README.md) or copy trusted .pt files there; only demo mode is available until then.</p>`}
       <div class="two">
         <label class="field">Single model (4 damage classes)<select name="model"><option value="">—</option>${opts(p.model)}</select></label>

@@ -12,7 +12,7 @@ A self-hosted platform that takes a response team from raw drone and phone image
 
 ## 1. Run it
 
-**Judge demo (fastest):** put `ANTHROPIC_API_KEY=...` in `disaster_assessor/.env`, then run `./start-demo.sh`. It sets up Python, seeds a Hurricane Ian incident from real NOAA aerial imagery analysed by Claude, and opens the app. The 5-minute walkthrough is in [DEMO.md](DEMO.md).
+**Judge demo (fastest):** connect Claude, either with `ant auth login` (Anthropic CLI sign-in) or by putting `ANTHROPIC_API_KEY=...` in `disaster_assessor/.env`. Then run `./start-demo.sh`. It sets up Python, seeds a Hurricane Ian incident from real NOAA aerial imagery analysed by Claude, and opens the app. The 5-minute walkthrough is in [DEMO.md](DEMO.md).
 
 **Manual:**
 
@@ -79,7 +79,7 @@ Footprint matching assigns each located observation to the containing building (
 
 ## 5. Models
 
-**Claude vision (default when `ANTHROPIC_API_KEY` is set):**
+**Claude vision (default when Claude API access is available):** authenticate with an API key (`ANTHROPIC_API_KEY`) or an Anthropic CLI sign-in (`ant auth login`); the SDK finds either automatically. API usage is billed through a Claude Console account: Max plans include linkable monthly API credit, and Pro plans don't include API usage.
 - Claude Opus 5.5 finds each building and returns a box, a damage class on the xBD scale, a confidence, the visible evidence and hazards. The evidence is shown in Review as "Claude's assessment".
 - It works on drone, aerial and phone photos with no GPU or training. Large aerial mosaics are split into overlapping 1280 px tiles and the boxes are merged.
 - Each run records its token usage and estimated cost. It needs internet, and images are sent to the Anthropic API.

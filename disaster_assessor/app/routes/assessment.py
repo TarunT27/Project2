@@ -81,9 +81,9 @@ async def create_run(
     if len(files) > MAX_FILES:
         raise HTTPException(413, f"Limit a run to {MAX_FILES} files.")
     if mode == "claude":
-        from ..services.claude_detector import is_configured as claude_ready
+        from ..services.claude_detector import NOT_CONFIGURED, is_configured as claude_ready
         if not claude_ready():
-            raise HTTPException(400, "Claude vision needs ANTHROPIC_API_KEY. Add it to disaster_assessor/.env and restart.")
+            raise HTTPException(400, NOT_CONFIGURED)
     if mode == "two_stage":  # server-wide defaults from DRA_BUILDING_MODEL / DRA_DAMAGE_MODEL
         building_model = building_model or get_config().building_model
         damage_model = damage_model or get_config().damage_model

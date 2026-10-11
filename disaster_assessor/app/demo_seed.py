@@ -40,8 +40,8 @@ def seed(detector="claude", if_empty=False, threshold=0.4):
     if detector == "claude":
         from .services.claude_detector import is_configured
         if not is_configured():
-            raise SystemExit("seed-demo needs ANTHROPIC_API_KEY for Claude vision (add it to disaster_assessor/.env), "
-                             "or pass --detector demo for synthetic boxes.")
+            from .services.claude_detector import NOT_CONFIGURED
+            raise SystemExit(NOT_CONFIGURED + " Or pass --detector demo for synthetic boxes.")
     missing = [n for n in PRESEED if not (DEMO_DIR / n).is_file()]
     if missing:
         raise SystemExit(f"Missing demo imagery: {', '.join(missing)} in {DEMO_DIR}")

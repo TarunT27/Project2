@@ -18,13 +18,14 @@ if ! .venv/bin/python -c "import fastapi, anthropic, pyproj, fpdf, shapefile" 2>
 fi
 
 [ -f .env ] || cp .env.example .env
-has_key() { [ -n "${ANTHROPIC_API_KEY:-}" ] || grep -Eq '^ANTHROPIC_API_KEY=.{8,}' .env; }
+# Same check the app uses: an API key in the env or .env, or an `ant auth login` profile.
+has_key() { .venv/bin/python -c "from app.config import load_dotenv; load_dotenv(); from app.services.claude_detector import is_configured; raise SystemExit(0 if is_configured() else 1)"; }
 export DRA_NO_LOGIN="${DRA_NO_LOGIN:-1}"
 
 if has_key; then
   .venv/bin/python -m app.cli seed-demo --if-empty
 else
-  echo "⚠  ANTHROPIC_API_KEY is empty in disaster_assessor/.env – Claude vision is off; seeding synthetic boxes instead."
+  echo "⚠  No Claude API access (ANTHROPIC_API_KEY in .env, or \`ant auth login\`) – Claude vision is off; seeding synthetic boxes instead."
   .venv/bin/python -m app.cli seed-demo --if-empty --detector demo
 fi
 

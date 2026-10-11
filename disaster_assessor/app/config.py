@@ -27,7 +27,8 @@ def load_dotenv(path=None):
         key, value = line.split("=", 1)
         key = key.strip().removeprefix("export ").strip()
         value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
+        # Skip blanks: an empty ANTHROPIC_API_KEY would shadow an `ant auth login` profile in the SDK.
+        if key and value and key not in os.environ:
             os.environ[key] = value
             loaded.append(key)
     get_config.cache_clear()

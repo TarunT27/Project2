@@ -4,10 +4,9 @@
 
 ## Before you present (10 minutes)
 
-1. Put your Anthropic API key in `disaster_assessor/.env`:
-   ```
-   ANTHROPIC_API_KEY=sk-ant-...
-   ```
+1. Connect Claude. The app uses the Claude API, which is billed through a Claude Console account, not the Claude.ai app. A Max plan includes monthly API credit you can link; a Pro plan doesn't include API usage. Choose one:
+   - **Sign in (no key to manage):** `brew install anthropics/tap/ant`, then `ant auth login` and pick your Console organisation in the browser.
+   - **API key:** create one at console.anthropic.com, then put it in `disaster_assessor/.env` as `ANTHROPIC_API_KEY=sk-ant-...`.
 2. Start everything:
    ```bash
    cd disaster_assessor && ./start-demo.sh

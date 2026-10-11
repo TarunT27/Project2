@@ -112,12 +112,37 @@ class ClaudeDetectorTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Claude detection failed"):
             det.predict(Image.new("RGB", (300, 300)))
 
-    def test_requires_key_without_client(self):
+    def test_credentials_api_key_token_or_cli_profile(self):
         import os
-        saved = os.environ.pop("ANTHROPIC_API_KEY", None)
-        try:
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as cfg, patch.dict(os.environ, {"ANTHROPIC_CONFIG_DIR": cfg}):
+            for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+                os.environ.pop(key, None)
+            self.assertIsNone(cd.credential_source())
             with self.assertRaises(cd.ClaudeUnavailable):
                 cd.ClaudeDetector(0.5)
-        finally:
-            if saved is not None:
-                os.environ["ANTHROPIC_API_KEY"] = saved
+            os.makedirs(os.path.join(cfg, "credentials"))
+            open(os.path.join(cfg, "credentials", "default.json"), "w").write("{}")
+            self.assertEqual(cd.credential_source(), "ant_profile")  # after `ant auth login`
+            os.environ["ANTHROPIC_API_KEY"] = "sk-test"
+            self.assertEqual(cd.credential_source(), "api_key")
+
+    def test_dotenv_skips_blank_values(self):
+        import os
+        import tempfile
+        from unittest.mock import patch
+        from app.config import load_dotenv
+
+        with tempfile.NamedTemporaryFile("w", suffix=".env", delete=False) as f:
+            f.write("ANTHROPIC_API_KEY=\nDRA_TEST_FLAG=1\n# comment\nexport DRA_TEST_Q=\"x\"\n")
+        with patch.dict(os.environ, {}, clear=False):
+            for key in ("ANTHROPIC_API_KEY", "DRA_TEST_FLAG", "DRA_TEST_Q"):
+                os.environ.pop(key, None)
+            loaded = load_dotenv(f.name)
+            self.assertNotIn("ANTHROPIC_API_KEY", os.environ)  # blank must not shadow a CLI sign-in
+            self.assertEqual(os.environ["DRA_TEST_FLAG"], "1")
+            self.assertEqual(os.environ["DRA_TEST_Q"], "x")
+            self.assertEqual(sorted(loaded), ["DRA_TEST_FLAG", "DRA_TEST_Q"])
+        os.unlink(f.name)

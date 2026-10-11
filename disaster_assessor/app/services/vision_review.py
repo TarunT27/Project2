@@ -75,8 +75,10 @@ def model_id() -> str:
 
 
 def is_configured() -> bool:
-    """True when an Anthropic API key is present in the environment."""
-    return bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
+    """True when the Anthropic SDK has credentials (API key, token, or `ant auth login` profile)."""
+    from .claude_detector import is_configured as claude_available
+
+    return claude_available()
 
 
 def _error(summary: str) -> dict:
