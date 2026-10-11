@@ -1,5 +1,7 @@
 """Training-pipeline tests that run without torch / ultralytics."""
 
+import isolation  # noqa: F401  (must run before anything reads Claude credentials)
+
 import json
 from pathlib import Path
 import tempfile

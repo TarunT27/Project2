@@ -1,5 +1,7 @@
 """Claude vision detector: tiling, merging, validation, refusals, failures and cost tracking (fake client)."""
 
+import isolation  # noqa: F401  (must run before anything reads Claude credentials)
+
 import base64
 import io
 import json

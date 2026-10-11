@@ -15,3 +15,5 @@ disaster_assessor/runs/
 
 # Local secrets (ANTHROPIC_API_KEY etc.)
 .env
+.env.*
+!.env.example

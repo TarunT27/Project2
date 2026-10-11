@@ -1,3 +1,4 @@
+import isolation  # noqa: F401  (hide real Claude credentials from tests)
 import hashlib
 import hmac
 import io

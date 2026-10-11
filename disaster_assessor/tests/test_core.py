@@ -1,3 +1,4 @@
+import isolation  # noqa: F401  (hide real Claude credentials from tests)
 import io
 import json
 import tempfile

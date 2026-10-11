@@ -1,5 +1,7 @@
 """End-to-end API tests for the platform: auth, runs, review, tasks, field sync, geo, exports, sharing, admin."""
 
+import isolation  # noqa: F401  (must run before anything reads Claude credentials)
+
 import csv
 import io
 import json

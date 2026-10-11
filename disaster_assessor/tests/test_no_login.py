@@ -1,5 +1,7 @@
 """No-login local mode: automatic local admin, loopback-only host check, refusal on non-loopback binds."""
 
+import isolation  # noqa: F401  (must run before anything reads Claude credentials)
+
 import os
 import shutil
 import tempfile
