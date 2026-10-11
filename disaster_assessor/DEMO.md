@@ -12,7 +12,7 @@
    cd disaster_assessor && ./start-demo.sh
    ```
    On first run this creates the **Hurricane Ian – Fort Myers Beach, FL** incident:
-   - Claude assesses three real NOAA aerial mosaics (about 1–2 minutes and roughly $1–2 of API usage).
+   - Claude assesses three real NOAA aerial mosaics (about 3 minutes and well under $1 of API usage; a test run cost 65¢).
    - Real OpenStreetMap building outlines are imported for those areas.
    - Two crews are created and tasks are made for the worst-hit buildings.
 

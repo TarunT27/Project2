@@ -65,7 +65,7 @@ def seed(detector="claude", if_empty=False, threshold=0.4):
 
     from .services.assess import Job
 
-    print(f"Assessing {len(PRESEED)} NOAA mosaics with {models.describe(detector, settings)} (about a minute)…")
+    print(f"Assessing {len(PRESEED)} NOAA mosaics with {models.describe(detector, settings)} (2–3 minutes)…")
     status = Job(run_id).run_job()
     with db.connect() as conn:
         run = db.one(conn, "SELECT status, message, errors_json FROM runs WHERE id = ?", (run_id,))
@@ -80,23 +80,35 @@ def seed(detector="claude", if_empty=False, threshold=0.4):
     with db.connect() as conn:
         crew_ids = [db.insert(conn, "crews", {"incident_id": incident_id, "name": name, "contact": contact,
                                               "created_at": db.now()}) for name, contact in CREWS]
-        high = db.all_rows(conn, """SELECT o.*, i.source_file FROM observations o JOIN images i ON i.id = o.image_id
-            WHERE o.incident_id = ? AND o.final_class IN ('Destroyed','Major Damage')
-            ORDER BY CASE o.final_class WHEN 'Destroyed' THEN 0 ELSE 1 END, o.confidence DESC""", (incident_id,))
-        for index, obs in enumerate(high):
-            crew = crew_ids[0] if index < 4 else crew_ids[1] if index < 7 else None
+    created = create_seed_tasks(incident_id, crew_ids)
+    _progress(f"{len(CREWS)} crews, {created} tasks for the most certain Destroyed buildings "
+              "(use 'Create tasks for high-priority' live for the rest)")
+    print(f"Done. Open http://127.0.0.1:8000/#/i/{incident_id}/console")
+    return incident_id
+
+
+def create_seed_tasks(incident_id, crew_ids, limit=12):
+    """A starter board: the most certain Destroyed buildings, half assigned. The rest are left for the live demo."""
+    with db.connect() as conn:
+        top = db.all_rows(conn, """SELECT o.*, i.source_file FROM observations o JOIN images i ON i.id = o.image_id
+            WHERE o.incident_id = ? AND o.final_class = 'Destroyed' AND o.status != 'rejected'
+            ORDER BY o.confidence DESC LIMIT ?""", (incident_id, limit))
+        for index, obs in enumerate(top):
+            crew = crew_ids[index % len(crew_ids)] if index < 6 else None
             db.insert(conn, "tasks", {
                 "incident_id": incident_id, "observation_id": obs["id"],
-                "title": f"{obs['final_class']} · {Path(obs['source_file']).stem.replace('-', ' ').title()}",
-                "damage_class": obs["final_class"],
-                "priority": (3 if obs["final_class"] == "Destroyed" else 2) * 100 + round(obs["confidence"] * 99),
+                "title": f"Destroyed · {Path(obs['source_file']).stem.replace('-', ' ').title()}",
+                "damage_class": "Destroyed", "priority": 300 + round(obs["confidence"] * 99),
                 "status": "assigned" if crew else "open", "crew_id": crew,
                 "latitude": obs["latitude"], "longitude": obs["longitude"], "hazards_json": obs["hazards_json"],
                 "created_at": db.now(), "updated_at": db.now(),
             })
-    _progress(f"{len(CREWS)} crews, {len(high)} tasks for Major/Destroyed buildings ({min(len(high), 7)} assigned)")
-    print(f"Done. Open http://127.0.0.1:8000/#/i/{incident_id}/console")
-    return incident_id
+    return len(top)
+
+
+def retry_footprints(incident_id):
+    """Re-run the OpenStreetMap import for every imagery area (already-stored buildings are skipped)."""
+    _import_footprints(incident_id)
 
 
 def _import_footprints(incident_id):

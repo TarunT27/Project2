@@ -10,7 +10,7 @@ const SVGNS = "http://www.w3.org/2000/svg";
 const CHIP = { "No Damage": "N", "Minor Damage": "m", "Major Damage": "M", "Destroyed": "D" };
 const PREFS_KEY = "dra-console-prefs";
 let host, ctx, mini, miniLayer;
-const st = { idx: 0, filter: "all", minConf: 0.5, hidden: new Set(), boxes: true, labels: true, grid: true, hud: true, queue: [], uploading: null };
+const st = { idx: 0, filter: "all", minConf: 0.4, hidden: new Set(), boxes: true, labels: "auto", grid: true, hud: true, queue: [], uploading: null };
 
 function prefs() {
   try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); } catch { return {}; }
@@ -32,7 +32,7 @@ const activeRun = () => ctx.store.data.runs.find((r) => r.status === "running" |
 export async function render(el, context) {
   host = el;
   ctx = context;
-  st.minConf = prefs().minConf ?? 0.5;
+  st.minConf = prefs().minConf ?? 0.4;
   st.hud = !window.matchMedia("(max-width: 760px)").matches;
   if (ctx.params.image) {
     const i = images().findIndex((im) => im.id === Number(ctx.params.image));
@@ -208,7 +208,8 @@ function renderViewport() {
     const rect = document.createElementNS(SVGNS, "rect");
     Object.entries({ class: "frame", x: x1, y: y1, width: x2 - x1, height: y2 - y1, rx: sw, stroke: color }).forEach(([k, v]) => rect.setAttribute(k, v));
     g.append(title, rect);
-    if (st.labels) {
+    // "auto": label boxes only when the image isn't crowded; the LBL button forces them on or off.
+    if (st.labels === true || (st.labels === "auto" && rows.length <= 25)) {
       const mark = o.status === "not_reviewed" ? "" : o.status === "confirmed" || o.status === "added" ? "✓ " : "✎ ";
       const text = `${mark}${o.is_demo ? "DEMO · " : ""}${SHORT[o.damage_class]} ${pct(o.confidence)}`;
       const w = text.length * fs * 0.58 + fs * 0.8, h = fs * 1.5, ty = y1 - h < 0 ? y1 : y1 - h;
@@ -296,7 +297,7 @@ function renderUnit() {
     <div class="round-row">
       <button class="round ${st.grid ? "on" : ""}" id="toggle-grid" aria-pressed="${st.grid}" title="Grid (G)">${icon("grid", 15)}<span>GRID</span></button>
       <button class="round ${st.hud ? "on" : ""}" id="toggle-hud" aria-pressed="${st.hud}" title="HUD (H)">${icon("hud", 15)}<span>HUD</span></button>
-      <button class="round ${st.labels ? "on" : ""}" id="toggle-labels" aria-pressed="${st.labels}" title="Labels (L)">${icon("tag", 15)}<span>LBL</span></button>
+      <button class="round ${st.labels ? "on" : ""}" id="toggle-labels" aria-pressed="${st.labels === true}" title="Labels (L): ${st.labels === "auto" ? "automatic, hidden on crowded images" : st.labels ? "on" : "off"}">${icon("tag", 15)}<span>${st.labels === "auto" ? "AUTO" : "LBL"}</span></button>
       <button class="round" id="run-settings" title="Run settings" ${canRun ? "" : "disabled"}>${icon("layers", 15)}<span>SET</span></button>
     </div>
     <button class="btn primary wide" id="run" ${!q || !canRun ? "disabled" : ""}>${q ? `Run assessment · ${plural(q, "file")}` : "Run assessment"}</button>
@@ -308,7 +309,7 @@ function renderUnit() {
   const on = (id, fn) => { const el = $(id, host); if (el) el.addEventListener("click", fn); };
   on("#toggle-grid", () => { st.grid = !st.grid; refresh(); });
   on("#toggle-hud", () => { st.hud = !st.hud; refresh(); });
-  on("#toggle-labels", () => { st.labels = !st.labels; refresh(); });
+  on("#toggle-labels", () => { st.labels = st.labels === "auto" ? true : st.labels ? false : "auto"; refresh(); });
   on("#run", runQueued);
   on("#run-settings", runSettings);
   on("#runs-history", runsHistory);
@@ -547,7 +548,7 @@ function onKey(e) {
   else if (k === "b") { st.boxes = !st.boxes; refresh(); }
   else if (k === "g") { st.grid = !st.grid; refresh(); }
   else if (k === "h") { st.hud = !st.hud; refresh(); }
-  else if (k === "l") { st.labels = !st.labels; refresh(); }
+  else if (k === "l") { st.labels = st.labels === "auto" ? true : st.labels ? false : "auto"; refresh(); }
   else if (k === "r" && current()) ctx.go(ctx.incidentPath("review", `?image=${current().id}`));
 }
 
