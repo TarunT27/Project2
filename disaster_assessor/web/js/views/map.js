@@ -202,7 +202,7 @@ function drawTasks() {
   if (!st.show.tasks) return;
   ctx.store.data.tasks.filter((t) => validCoord(t.latitude, t.longitude) && !["cancelled"].includes(t.status)).forEach((t) => {
     const done = ["done", "searched_clear"].includes(t.status);
-    const m = L.marker([t.latitude, t.longitude], { icon: L.divIcon({ className: "", iconSize: [22, 22], iconAnchor: [11, 26],
+    const m = L.marker([t.latitude, t.longitude], { icon: L.divIcon({ className: "", iconSize: [22, 22], iconAnchor: [-8, 30],
       html: `<span class="task-pin ${t.status}" style="--c:${COLORS[t.damage_class] || "#5aa9e6"}">${done ? "✓" : t.status === "needs_usar" ? "!" : "T"}</span>` }), zIndexOffset: 500 });
     m.bindPopup(`<div class="popup"><div class="tag">TASK #${t.id}</div><h4>${esc(t.title)}</h4><div class="meta">${esc(TASK_LABEL[t.status])} · ${esc(t.crew || "unassigned")}</div>
       <a href="${ctx.incidentPath("tasks", `?task=${t.id}`)}">Open task</a></div>`);

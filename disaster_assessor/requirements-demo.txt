@@ -1,11 +1,18 @@
-streamlit>=1.50,<2
-streamlit-folium>=0.25,<1
-opencv-python>=4.10,<5
-pillow>=11,<13
-folium>=0.19,<1
-pandas>=2.2,<3
-piexif>=1.1.3,<2
+# Core platform (demo mode, uploads, telemetry, GeoTIFF, maps, exports). No PyTorch.
 fastapi>=0.115,<1
 uvicorn>=0.30,<1
 python-multipart>=0.0.9,<1
 httpx>=0.27,<1
+pillow>=11,<13
+piexif>=1.1.3,<2
+opencv-python-headless>=4.10,<5
+numpy>=1.26,<3
+pandas>=2.2,<3
+pyproj>=3.6,<4
+fpdf2>=2.7,<3
+pyshp>=2.3,<4
+anthropic>=0.40
+# Classic Streamlit interface (optional)
+streamlit>=1.50,<2
+streamlit-folium>=0.25,<1
+folium>=0.19,<1

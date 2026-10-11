@@ -1,0 +1,30 @@
+# docker compose up -d   →  http://localhost:8000  (create the admin account on first visit)
+# Put a TLS reverse proxy (Caddy, nginx, Traefik) in front before exposing this beyond your machine,
+# then set DRA_SECURE_COOKIES=1 and DRA_PUBLIC_URL=https://your-host.
+services:
+  dra:
+    build:
+      context: .
+      args:
+        FULL: "0"            # "1" installs PyTorch + Ultralytics for real models
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - dra-data:/data       # database, imagery, backups
+      - ./models:/models:ro  # trusted .pt weights (see training/README.md)
+    environment:
+      FORWARDED_ALLOW_IPS: "*"
+      # DRA_PUBLIC_URL: https://dra.example.org
+      # DRA_SECURE_COOKIES: "1"
+      # DRA_DEVICE: cuda:0
+      # DRA_BUILDING_MODEL: xbd_building.pt
+      # DRA_DAMAGE_MODEL: xbd_damage_cls.pt
+      # ANTHROPIC_API_KEY: ...            # optional Claude second opinion
+      # DRA_SLACK_WEBHOOK: https://hooks.slack.com/services/...
+      # DRA_OSRM_URL: http://osrm:5000    # optional road routing
+      # DRA_TILE_URL: https://tiles.example.org/{z}/{x}/{y}.png
+      # DRA_RETENTION_DAYS: "180"
+    restart: unless-stopped
+
+volumes:
+  dra-data:

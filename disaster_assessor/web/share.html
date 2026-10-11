@@ -1,1 +1,115 @@
-<!doctype html><title>Shared</title>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050506">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Shared damage assessment</title>
+  <link rel="icon" href="/static/field/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/share.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous" defer></script>
+  <script src="/static/share.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="head">
+      <div class="head-main">
+        <div class="eyebrow">
+          <span class="logo">DRA</span>
+          <span class="badge-ro">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            Read-only shared view
+          </span>
+          <span id="inc-status" class="badge-status" hidden></span>
+        </div>
+        <h1 id="inc-name">Loading shared assessment…</h1>
+        <p id="inc-desc" class="desc" hidden></p>
+      </div>
+      <div class="head-meta">
+        <span class="meta-label">Generated</span>
+        <time id="generated" class="meta-value">—</time>
+        <button id="reload" class="btn ghost small" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <div id="notices" class="notices"></div>
+
+    <main id="content" class="content" aria-busy="true">
+      <section class="stats" aria-label="Summary">
+        <div class="stat"><span class="stat-label">Observations</span><b id="st-obs" class="stat-value">—</b><span id="st-obs-sub" class="stat-sub"></span></div>
+        <div class="stat hot"><span class="stat-label">High priority</span><b id="st-high" class="stat-value">—</b><span class="stat-sub">Major damage + destroyed</span></div>
+        <div class="stat"><span class="stat-label">Buildings matched</span><b id="st-bld" class="stat-value">—</b><span id="st-bld-sub" class="stat-sub">Footprints with observations</span></div>
+        <div class="stat"><span class="stat-label">Analyst reviewed</span><b id="st-rev" class="stat-value">—</b><span id="st-rev-sub" class="stat-sub"></span></div>
+      </section>
+
+      <section class="card sev" aria-labelledby="sev-title">
+        <div class="card-head">
+          <h2 id="sev-title">Damage breakdown</h2>
+          <span class="sub" id="sev-total"></span>
+        </div>
+        <div id="sev-bar" class="sev-bar" role="img" aria-label="Damage breakdown"></div>
+        <ul id="sev-legend" class="sev-legend"></ul>
+        <div id="review-row" class="review-row"></div>
+      </section>
+
+      <section class="card map-card" aria-labelledby="map-title">
+        <div class="card-head">
+          <h2 id="map-title">Map</h2>
+          <span class="sub" id="map-sub">Loading layers…</span>
+        </div>
+        <div class="map-wrap">
+          <div id="map" class="map" role="region" aria-label="Damage map"></div>
+          <div id="map-msg" class="map-msg" hidden></div>
+        </div>
+        <ul class="legend" aria-label="Map legend">
+          <li><i style="background:#dc2626"></i>Destroyed</li>
+          <li><i style="background:#f97316"></i>Major</li>
+          <li><i style="background:#eab308"></i>Minor</li>
+          <li><i style="background:#16a34a"></i>No damage</li>
+          <li><i class="ring"></i>Number = observations at one point</li>
+          <li><i class="poly"></i>Building footprint</li>
+        </ul>
+        <p class="fine">Points show the camera or reference location of each image, not a verified building location. Footprints are colored by the worst observation matched to them.</p>
+      </section>
+
+      <div class="cols">
+        <section class="card" aria-labelledby="dl-title">
+          <div class="card-head"><h2 id="dl-title">Downloads</h2></div>
+          <p class="sub">Observation data for GIS and reporting tools. Rejected detections are excluded; reviewer identities and crew assignments are never included.</p>
+          <div class="downloads" id="downloads">
+            <a class="dl" data-fmt="csv" href="#" download><b>CSV</b><span>Spreadsheet</span></a>
+            <a class="dl" data-fmt="geojson" href="#" download><b>GeoJSON</b><span>Points</span></a>
+            <a class="dl" data-fmt="kml" href="#" download><b>KML</b><span>Google Earth</span></a>
+            <a class="dl" data-fmt="shp" href="#" download><b>Shapefile</b><span>Zipped .shp</span></a>
+            <a class="dl" data-fmt="buildings" href="#" download><b>Buildings</b><span>Footprints GeoJSON</span></a>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="runs-title">
+          <div class="card-head"><h2 id="runs-title">Assessment runs</h2><span class="sub" id="runs-sub"></span></div>
+          <ol id="runs" class="runs"></ol>
+        </section>
+      </div>
+
+      <footer class="foot">
+        <p>Detections that are not yet reviewed are model output and may be wrong. Confirm on the ground before acting.</p>
+        <p>This link was shared by the incident coordinator and expires automatically. Do not forward it outside your agency.</p>
+      </footer>
+    </main>
+
+    <section id="gone" class="gone" hidden aria-labelledby="gone-title">
+      <div class="gone-card">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/><path d="M3 3l18 18"/></svg>
+        <h1 id="gone-title">This link has expired or is invalid</h1>
+        <p id="gone-text">Shared views stop working after their expiry time or when the coordinator revokes them. Ask the person who sent it for a new link.</p>
+        <button id="gone-retry" class="btn primary" type="button" hidden>Try again</button>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

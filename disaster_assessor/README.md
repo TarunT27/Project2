@@ -1,137 +1,148 @@
 # ⚡ Rapid Disaster Assessment & Rescue Planner
 
-A runnable MVP for visual damage review, approximate geospatial situational awareness, and severity-ranked exports. It has two front ends over one shared pipeline:
+A self-hosted platform that takes a response team from raw drone and phone imagery to reviewed, mapped and assigned rescue work:
 
-- **Mission console** (`python server.py`): a FastAPI backend with a hand-built dark dashboard in `web/`, modeled on a drone ground-control UI.
-- **Classic Streamlit app** (`streamlit run app.py`): three tabs, **Assess**, **Map** and **Export**.
+1. **Assess.** Upload photos, drone video (with DJI `.SRT` telemetry) or GeoTIFF orthomosaics. Damage detection runs in the background with live progress.
+2. **Review.** Analysts confirm, correct or reject every detection, draw buildings the model missed, tag hazards and add notes. Every decision is logged. An optional Claude vision second opinion flags disagreements.
+3. **Locate.** Detections are placed on the map using GeoTIFF georeferencing, drone telemetry projection, EXIF GPS or a manual reference, then matched to building footprints (OpenStreetMap or your own) so each building is counted once.
+4. **Act.** Coordinators turn high-priority buildings into tasks, assign crews and plan route order. Crews work from an offline-capable phone app that syncs field reports and photos.
+5. **Share.** Export a PDF situation report, CSV, GeoJSON, KML or Shapefile, or give partner agencies an expiring read-only link.
 
 ![Console](design/console-desktop.png)
 
-## 1. Install and run
-
-Python 3.11 or 3.12 recommended; verified on Python 3.12 / macOS ARM64.
+## 1. Run it
 
 ```sh
 cd disaster_assessor
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-demo.txt
-python server.py          # mission console → http://127.0.0.1:8000
-streamlit run app.py      # classic Streamlit UI (optional)
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-demo.txt      # core platform, no PyTorch
+python server.py                          # → http://127.0.0.1:8000
 ```
 
-Windows activation: `.venv\Scripts\activate`. The server binds to `127.0.0.1` by default. Set `HOST` / `PORT` to change that, and add authentication before exposing it.
+On the first visit you create the **administrator** account. Then create an incident, open its console and click **Run the synthetic demo** to see the whole workflow without a model.
 
-`requirements-demo.txt` covers the complete demo, uploads, video sampling, maps and exports without Torch. For real YOLO inference, install `requirements.txt` instead; it adds Ultralytics, Torch, Torchvision and GeoPandas. `requirements-tested.txt` captures resolved versions from an earlier local test. For CUDA, follow the official PyTorch platform-specific installer.
+Python 3.11+ is required (3.12 is tested). Real model inference needs `pip install -r requirements.txt` (PyTorch + Ultralytics).
 
-Open the app, then click **Load synthetic demo**. This flow needs no API key, account, model download or external image service.
+**Docker:** `docker compose up -d` (see `docker-compose.yml`). Data lives in the `dra-data` volume, and model weights are mounted from `./models`.
 
-### Console at a glance
-
-| Area | What it does |
-| --- | --- |
-| Icon rail | Console · Rescue map · Export · Settings · Data & privacy · Add imagery · Clear session |
-| Viewport | Selected image with live SVG detection boxes, a rule-of-thirds grid, and a HUD showing mode, resolution, confidence level, per-class counts and a luminance histogram. Drag and drop files anywhere on it. |
-| Unit card | Detector in use, high-priority share, a live **confidence filter**, toggles for grid/HUD/labels, and **Run assessment** |
-| Telemetry | Photo/video filter, thumbnail strip, mini-map, run stats, and a severity list (click a class to hide or show it). The **D-pad** steps through images (◀ ▶), nudges the confidence filter (▲ ▼), and runs (center). |
-| Severity dial | The outer ring shows the class distribution. The needle shows the severity index (mean of Intact 0 … Destroyed 3). The percentage breakdown and reference coordinates are printed below. |
-| Rescue map | Dark OpenStreetMap basemap. One marker per capture point, colored by its most severe observation. Clusters use their worst child's color. The ranked list on the right flies to a point and opens its popup. |
-| Export | Summary cards, CSV and GeoJSON downloads, and the ranked priority queue |
-
-Keyboard shortcuts: ← → switch images, `B` boxes, `L` labels, `G` grid, `H` HUD, `Esc` closes drawers.
-
-The confidence filter is applied live in the browser, and the CSV/GeoJSON downloads use the same filter (`?min_conf=`). Each exported row records the effective threshold. The filter can't recover detections below the threshold the run used; the console prompts you to rerun in that case.
-
-### HTTP API
-
-| Method | Path | Purpose |
+| App | URL | Who |
 | --- | --- | --- |
-| GET | `/api/config` | Classes, colors, default center, limits |
-| POST | `/api/demo` | Assess the generated demo scenes |
-| POST | `/api/assess` | Multipart `files` plus `mode`, `confidence`, `model_path`, `device`, `lat`, `lon`, `override`, `interval`, `max_frames` |
-| GET | `/api/runs/{id}/export.csv` · `.geojson` | Severity-ranked exports, optional `min_conf` |
+| Console | `/` | admins, coordinators, reviewers |
+| Field app (installable, offline) | `/field/` | rescue crews on phones |
+| Shared view | `/share/<token>` | partner agencies, no account |
+| API docs | `/api/docs` | integrators |
+| Classic Streamlit demo | `streamlit run app.py` | offline single-user demo |
 
-Runs live in memory (the last 10) and are never written to disk.
+## 2. Roles
 
-## 2. Source files in requested order
+| Role | Can |
+| --- | --- |
+| **admin** | everything, plus users, backups, retention, audit log |
+| **coordinator** | incidents, crews, tasks, routes, footprints, imagery overlays, share links |
+| **reviewer** | run assessments, review observations, draw missed buildings |
+| **field** | the field app: assigned tasks, status updates, reports with photos and GPS |
 
-0. `server.py` + `web/` (`index.html`, `app.css`, `app.js`): mission-console backend and frontend.
-1. `requirements.txt` + `requirements-demo.txt`: full and minimal installations.
-2. `utils/geo_utils.py`: EXIF DMS parsing, timestamp, explicit provenance, demo fallback, Folium map/popups.
-3. `utils/detector.py`: `DamageDetector(use_mock=True).predict(image)`; real YOLO integration and PIL box rendering.
-4. `utils/mock_data.py`: deterministic synthetic detections and generated test scenes.
-5. `utils/pipeline.py`: the shared assessment pipeline (limits, EXIF/override location, inference, annotation) used by both front ends.
-6. `app.py`: Streamlit three-tab UI, upload/run controls, video handling, original/annotated views, class percentages, map and exports.
-7. `utils/media.py`: bounded OpenCV frame sampling; temporary files deleted after decoding.
-8. `utils/exports.py`: severity ranking, CSV formula escaping, GeoJSON `[longitude, latitude]` points.
-9. `tests/test_core.py` + `tests/test_server.py`: unit/integration tests, including the Streamlit AppTest and FastAPI endpoint tests.
+Lost the admin password? Run `python -m app.cli create-user rescue-admin --role admin`.
 
-## 3. Use the dashboard
+## 3. Workflow in the console
 
-- Upload JPG/JPEG, PNG, WebP, TIFF, or MP4/MOV/AVI/MKV. Up to 20 files / 200 MB combined. Video decoding depends on installed codecs; H.264 MP4 is a practical input choice.
-- Select synthetic demo or real damage-trained YOLO in Settings. Expand Detection, Location, or Video settings to configure the next run.
-- Run assessment. Original and annotated images appear side by side; choose another image/frame from the selector. The class distribution includes retained detections only, with all four classes shown.
-- Explore clustered map observations: green = No Damage, yellow = Minor, orange = Major, red = Destroyed. Each popup carries preview, class, score, location source, and time. Multiple boxes from a single image share a capture location.
-- Download CSV or GeoJSON. Rows sort Destroyed → Major → Minor → No Damage, then score, with stable tie ordering. CSV retains missing-coordinate observations; GeoJSON excludes them. All rows retain source/demo/coordinate/model/threshold/review-status metadata.
-- A new run replaces the previous results. Changing controls does not silently recalculate old results. Clear session removes results; remove uploader files or close the tab to release uploaded inputs.
+- **Console:** drop files on the viewport. The run is queued and processed in the background, with progress streamed live to everyone viewing the incident. Use **SET** to choose the model mode, video sampling, a manual reference point and the Claude second opinion.
+- **Review** (`R` from the console). Keys: `1`–`4` set class, `C`/`Enter` confirm, `X` reject, `N` next unreviewed, `J`/`K` next/previous box, `[`/`]` previous/next image, `D` draw a missed building, `E` redraw the selected box. **Confirm image** accepts every remaining box in the current image.
+- **Rescue map:**
+  - Map layers: capture points (split-colour rings show mixed damage), building footprints coloured by their worst non-rejected class (dashed outline = not fully reviewed), a damage-density heatmap, tasks and planned routes.
+  - Pre-/post-event GeoTIFF overlays with a swipe comparison.
+  - Filters by run and by review status.
+  - **Import OSM buildings** for the visible area, or upload a footprint GeoJSON.
+- **Tasks & crews:**
+  - **Create tasks for high-priority** (Major and Destroyed observations without a task).
+  - Assign crews and drag cards between status columns.
+  - Open a task to see field reports and photos.
+  - Plan a route per crew on the map.
+- **Export & share:** six formats, filtered by "reviewed only" and minimum score. Share links expire and never include crew assignments or reviewer identities.
 
-The MVP counts **building observations**, not unique structures. Video frames and overlapping photos may include the same building. It does not infer occupancy, confirmed rescues needed, travel access, or safe road routes. Exports are a review-priority list, not navigation instructions. No heatmap is claimed: output uses explicit bounding boxes, class counts, and map markers.
+## 4. Where locations come from
 
-## 4. Real model mode
+| `location_source` | Meaning | Accuracy |
+| --- | --- | --- |
+| `ortho_georef` | Box centre on a georeferenced GeoTIFF (EPSG:4326, 3857, UTM via pyproj) | as good as the mosaic |
+| `telemetry_projection` | DJI XMP/SRT altitude + gimbal pitch/yaw project the box centre onto flat ground | tens of metres; assumes flat terrain at take-off height |
+| `drone_telemetry` / `exif_camera` | Camera position only | the building is somewhere in view |
+| `manual_reference` | One operator-chosen point for the whole run | coarse |
+| `synthetic_demo` | Simulated near the incident centre (demo mode only) | not real |
+| `device_gps` | Field-photo location from the crew's phone | phone GPS |
 
-The app supports **trusted local Ultralytics YOLOv8/YOLO11-compatible damage-trained `.pt` weights**, using the installed Ultralytics API. Put weights in a separate file, such as `models/damage_best.pt`, and enter that path in the sidebar. Do not paste binary weights into `detector.py`.
+Footprint matching assigns each located observation to the containing building (or the nearest one within 25 m). The building view and the buildings export then count each building once, even when several photos or video frames show it. In sampled video, detections are also linked across frames into tracks.
 
-```python
-from PIL import Image
-from utils.detector import DamageDetector
+## 5. Models
 
-detector = DamageDetector(
-    use_mock=False,
-    model_path="models/damage_best.pt",
-    confidence_threshold=0.5,
-    device="cpu",  # or mps / cuda:0 when supported
-)
-boxes = detector.predict(Image.open("incident.jpg"))
-```
+No damage-trained weights are bundled, and standard COCO `yolov8n.pt`/YOLO11 weights are rejected because they don't classify damage. There are two supported paths:
 
-Exactly four class names are required: `No Damage`, `Minor Damage`, `Major Damage`, `Destroyed`. Hyphens/underscores/case are normalized; `intact` / `undamaged`, `minor`, and `major` are supported aliases. Unsupported taxonomies fail clearly instead of guessing class-ID mappings. Detection/segmentation weights produce boxes; classification weights produce a **whole-image** box tagged `whole_image_classification`, which must not be read as a localized building.
+- **Two-stage (recommended):** a building detector, then a damage classifier on each crop. Train both on xBD/xView2 with `training/` (see [training/README.md](training/README.md)), copy the `.pt` files into `models/`, and pick them under console **SET**. You can also set `DRA_BUILDING_MODEL`/`DRA_DAMAGE_MODEL`.
+- **Single model:** one YOLO detection model whose four classes are `No Damage`, `Minor Damage`, `Major Damage`, `Destroyed`.
 
-**Standard `yolov8n.pt` and COCO YOLO11 weights do not classify building damage.** They are deliberately rejected instead of assigning arbitrary damage labels to generic objects. No suitable damage-trained checkpoint was supplied, so this delivery does not claim real-world damage accuracy. There is no misleading ImageNet ResNet fallback.
+Weights load only from the `models/` folder, because PyTorch checkpoints can execute code, so use trusted files only. Satellite-trained models transfer poorly to oblique drone or street-level photos, so fine-tune on local labelled imagery and validate before operational use. Model scores are uncalibrated; they are not probabilities of damage.
 
-Model name compatibility is not scientific validation. Before operational use, validate trained weights against local building types, pre/post-event imagery, viewpoints, sensor resolution, lighting, and damage definitions. Aerial and street-level domains differ. Some xView2 methods require paired pre/post images and footprints; they cannot simply be substituted into this single-image YOLO interface. Review dataset licenses and model provenance. Load only trusted checkpoints: PyTorch weight files may execute code when deserialized by their loader.
+**Claude second opinion (optional):** set `ANTHROPIC_API_KEY`, then enable it per run. Crops of Major and Destroyed detections are sent to the Anthropic API for an independent class, rationale and hazards. These appear in Review and never change classes on their own.
 
-## 5. Geospatial behavior
+## 6. Configuration (environment variables)
 
-`extract_gps_from_exif(image, demo_fallback=True, center=(37.7749, -122.4194), seed="...")` returns a dictionary with latitude, longitude, capture timestamp, location source, and synthetic-location flag.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `HOST` / `PORT` | `127.0.0.1` / `8000` | bind address |
+| `DRA_DATA_DIR` | `./data` | database, imagery, backups |
+| `DRA_MODELS_DIR` | `./models` | allowed model weights |
+| `DRA_DEVICE` | `cpu` | `cpu`, `mps` (Apple), `cuda:0` |
+| `DRA_WORKERS` | `1` | concurrent assessment jobs |
+| `DRA_PUBLIC_URL` | — | absolute links in alerts and share links |
+| `DRA_SECURE_COOKIES` | off | set to `1` behind HTTPS |
+| `DRA_SESSION_HOURS` | `12` | sign-in lifetime |
+| `DRA_TILE_URL` / `DRA_TILE_ATTRIBUTION` | OpenStreetMap | basemap; use your own tile server for offline or heavy use |
+| `DRA_OSRM_URL` | — | road routing ([OSRM](https://project-osrm.org)) |
+| `DRA_SLACK_WEBHOOK` | — | alert when Destroyed is detected |
+| `DRA_WEBHOOK_URL` / `DRA_WEBHOOK_SECRET` | — | signed JSON webhook (`X-DRA-Signature`, HMAC-SHA256) |
+| `ANTHROPIC_API_KEY`, `DRA_VISION_MODEL` | — | Claude second opinion |
+| `DRA_RETENTION_DAYS` | off | daily deletion of closed incidents older than N days |
+| `DRA_KEEP_UPLOADS` | off | keep raw uploads after processing |
+| `DRA_ALLOWED_ORIGINS` | — | extra origins allowed to POST (comma-separated) |
 
-- Valid EXIF uses signed degrees/minutes/seconds and preserves the raw capture timestamp (timezone unknown unless provided by the source).
-- Demo mode without EXIF generates a deterministic random offset near the reference point, marked `synthetic_demo` and `location_is_synthetic=True`.
-- Real mode explicitly uses `demo_fallback=False`: missing GPS remains null/unmapped until a manual reference is enabled.
-- Manual overrides are shared reference coordinates for the current batch; they are labeled `manual_reference`. For distinct locations, run location-specific batches or retain valid per-image EXIF. Precise per-building georeferencing, drone telemetry import, photogrammetry, and tracking are out of scope.
-- EXIF identifies the **camera position**, not the detected building. It is an approximate observation location. A bounding box alone cannot locate a building on Earth.
+## 7. Operations and security
 
-Frames are sampled at the configured interval, limited to 30 per video and 60 total images/frames per run, with at most 2,000 observations. Images are oriented using EXIF then resized to at most 1600 × 1600 for inference. Bounding boxes refer to these inference-image pixels. Capture GPS is parsed before orientation transforms.
+- **Data:** SQLite (WAL mode) plus image files under `DRA_DATA_DIR`. Back up from Admin → **Back up now**, or with `python -m app.cli backup`; a backup is a consistent database snapshot plus imagery. Retention: `python -m app.cli retention 180 --apply`.
+- **Built-in protections:**
+  - scrypt password hashes and HTTP-only SameSite session cookies.
+  - Login throttling and an origin check on every write.
+  - A strict Content-Security-Policy.
+  - Role checks on every endpoint and an audit log of sign-ins, edits, exports and shares.
+- **Before network exposure:**
+  - Keep the default localhost bind, or put a TLS reverse proxy in front.
+  - Set `DRA_SECURE_COOKIES=1` and `DRA_PUBLIC_URL`.
+  - Imagery and EXIF can reveal sensitive locations.
+- **External requests:**
+  - Map tiles for the viewed area.
+  - Leaflet and fonts from unpkg/Google Fonts in the console.
+  - The Overpass API only when someone imports OSM buildings.
+  - The Anthropic API and webhooks only when configured.
+  - The field app's shell works fully offline.
 
-## 6. Privacy and runtime
+## 8. Limits and honest caveats
 
-Processing occurs on the machine hosting Streamlit. On localhost, that is your laptop; hosted use uploads data to the hosting server. No cloud image inference API is called. Uploaded imagery/results remain in session memory; temporary video files are deleted after decoding, including normal decode errors. Images and EXIF can contain sensitive incident/location information: protect a hosted deployment with appropriate authentication and network access. The MVP includes no authentication and should not be exposed as a public incident-data service without adding it.
+- Observations are model output until a reviewer confirms them. Exports and reports label demo data and unreviewed output.
+- Severity ranking orders review work. It does not confirm occupancy, structural safety or safe access.
+- Straight-line route ordering ignores roads. OSRM uses pre-disaster road data and can't see closures or debris.
+- Telemetry projection assumes flat ground and no lens distortion, so verify on the ground.
+- Field reports synced late show the time the crew made them; the server de-duplicates retries.
 
-OpenStreetMap tiles and Folium JavaScript/CSS are fetched externally. The map requests the viewed geographic region but does not send source image files to the tile provider. Disabling the basemap stops tile requests; it does not make Folium's externally hosted JS/CSS fully offline. Streamlit usage statistics are disabled in the local config. The synthetic demo is clearly marked in UI, popups, filenames, and each exported record.
-
-## 7. Tests and verification
+## 9. Development
 
 ```sh
-python -m unittest discover -s tests -v
-python -m compileall -q app.py server.py utils tests
-pip check
+python -m unittest discover -s tests -v    # 86 tests: services, training, platform API, Streamlit app
+python -m compileall -q app.py server.py app utils training tests
+for f in web/js/*.js web/js/views/*.js web/field/*.js web/share.js; do node --check "$f"; done
 ```
 
-Fourteen tests cover deterministic mock mode and thresholds, EXIF south/west parsing and timestamps, missing-GPS provenance, coordinate validation, export rank/order/GeoJSON and spreadsheet escaping, popup HTML escaping, bounded video sampling, rejection of generic YOLO class names, real-adapter mapping with a mocked model, the Streamlit demo/reset/real-mode UI flow, and the console API: demo run, image upload, partial-failure batches, filtered CSV/GeoJSON exports, and rejection of missing models, oversized batches, bad file types and invalid coordinates.
-
-Completed locally: 14/14 tests; Python compilation; dependency compatibility check. Full requested dependencies installed. Browser verification: synthetic assessment creates original/annotated previews and severity percentages, map tab displays mapped observations, export tab exposes CSV/GeoJSON downloads. A damage-trained checkpoint was **not supplied or validated**; real model output quality and GPU performance remain untested. No FPS/latency or emergency readiness claims are made.
-
-## 8. Deployment
-
-For a trusted local network, deliberately choose a bind address and restrict access using your network controls. For Streamlit Community Cloud or another hosted service, use `disaster_assessor/app.py` as the entry point and install its requirements; configure access controls before uploading nonpublic incident data. Model files must be provisioned on that server. GPU availability depends on the host. GitHub Pages cannot run Streamlit/Python.
-
-API references: [Ultralytics prediction](https://docs.ultralytics.com/modes/predict/), [Streamlit file uploader](https://docs.streamlit.io/develop/api-reference/widgets/st.file_uploader), [Pillow EXIF tags](https://pillow.readthedocs.io/en/stable/reference/ExifTags.html).
+**Layout:**
+- `app/`: FastAPI platform (routes, services, jobs, auth, db).
+- `utils/`: detection, geo, exports, video, shared pipeline.
+- `training/`: xBD pipeline.
+- `web/`: console (ES modules, no build step), field PWA, share page.
+- `tests/`: the test suite.

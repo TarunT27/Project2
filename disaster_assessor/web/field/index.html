@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e0f11">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DRA Field">
+  <meta name="description" content="Rescue task list and offline field reports for disaster response crews.">
+  <title>DRA Field</title>
+  <link rel="manifest" href="/field/manifest.webmanifest">
+  <link rel="icon" href="/static/field/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/field/icon.svg">
+  <link rel="stylesheet" href="/static/field/field.css">
+  <script src="/static/field/field.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="top">
+    <div class="brand">
+      <svg class="brand-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+      <span>DRA <b>Field</b></span>
+    </div>
+    <div class="top-right">
+      <span id="net" class="net"><i class="dot" aria-hidden="true"></i><span id="net-label">Starting…</span></span>
+      <button id="user-btn" class="icon-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="user-menu" hidden>
+        <span class="avatar" id="user-initials" aria-hidden="true">?</span>
+        <span class="sr-only">Account</span>
+      </button>
+    </div>
+    <div id="user-menu" class="menu" hidden>
+      <p class="menu-name" id="user-name"></p>
+      <p class="menu-sub" id="user-role"></p>
+      <button id="logout-btn" class="btn ghost wide" type="button">Sign out</button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" role="status" aria-live="polite" aria-atomic="true">
+    <span id="banner-text">Loading…</span>
+    <button id="banner-action" class="banner-btn" type="button" hidden></button>
+  </div>
+
+  <main id="main" tabindex="-1">
+    <!-- Sign in -->
+    <section id="view-login" class="view" aria-labelledby="login-title" hidden>
+      <div class="login-card">
+        <svg class="login-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+        <h1 id="login-title">Sign in to DRA Field</h1>
+        <p class="muted" id="login-intro">Use the account your coordinator gave your crew.</p>
+        <form id="login-form" class="form" novalidate>
+          <label class="field">
+            <span>Username</span>
+            <input id="login-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input id="login-pass" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <p id="login-error" class="form-error" role="alert" hidden></p>
+          <button id="login-submit" class="btn primary wide big" type="submit">Sign in</button>
+        </form>
+        <p id="login-offline" class="note" hidden>You are offline. Sign-in needs a connection — reports you already saved stay on this phone.</p>
+      </div>
+    </section>
+
+    <!-- Task list -->
+    <section id="view-list" class="view" aria-labelledby="list-title" hidden>
+      <div class="list-head">
+        <div>
+          <h1 id="list-title">My tasks</h1>
+          <p class="muted" id="list-sub"></p>
+        </div>
+        <button id="locate-btn" class="chip-btn" type="button" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+          Show distances
+        </button>
+      </div>
+      <div class="seg" role="group" aria-label="Filter tasks">
+        <button type="button" class="seg-btn active" data-filter="open" aria-pressed="true">Open <b id="count-open">0</b></button>
+        <button type="button" class="seg-btn" data-filter="closed" aria-pressed="false">Finished <b id="count-closed">0</b></button>
+        <button type="button" class="seg-btn" data-filter="all" aria-pressed="false">All</button>
+      </div>
+      <div class="sortbar">
+        <span class="muted">Sort</span>
+        <button type="button" class="sort-btn active" data-sort="priority" aria-pressed="true">Priority</button>
+        <button type="button" class="sort-btn" data-sort="distance" aria-pressed="false">Nearest</button>
+      </div>
+      <ul id="task-list" class="task-list" aria-live="off"></ul>
+      <div id="list-empty" class="empty" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
+        <h2 id="empty-title">No tasks</h2>
+        <p class="muted" id="empty-text">Nothing is assigned to your crew right now. Pull fresh tasks with Refresh.</p>
+      </div>
+    </section>
+
+    <!-- Task detail -->
+    <section id="view-detail" class="view" aria-labelledby="detail-title" hidden>
+      <figure class="hero" id="hero">
+        <img id="hero-img" alt="" hidden>
+        <div class="hero-ph" id="hero-ph">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 8"/></svg>
+          <span id="hero-ph-text">No image for this task</span>
+        </div>
+        <span class="hero-class" id="hero-class"></span>
+      </figure>
+
+      <div class="detail-head">
+        <h1 id="detail-title"></h1>
+        <p class="muted" id="detail-meta"></p>
+        <div class="detail-pills" id="detail-pills"></div>
+      </div>
+
+      <section class="card" aria-labelledby="loc-title">
+        <h2 id="loc-title" class="card-title">Location</h2>
+        <p class="coords" id="detail-coords"></p>
+        <p class="muted small" id="detail-distance"></p>
+        <div class="map-links" id="map-links">
+          <a class="btn ghost big" id="geo-link" href="#">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            Open in Maps
+          </a>
+          <a class="btn ghost big" id="gmaps-link" href="#" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-8-8 18-2-8z"/></svg>
+            Directions
+          </a>
+        </div>
+        <p class="fine">Point is the camera or reference location from imagery — confirm the building on arrival.</p>
+      </section>
+
+      <section class="card" aria-labelledby="hist-title">
+        <h2 id="hist-title" class="card-title">Log</h2>
+        <div id="detail-hazards" class="chips"></div>
+        <ol id="notes-log" class="log"></ol>
+      </section>
+
+      <form id="report-form" class="card report" aria-labelledby="report-title" novalidate>
+        <h2 id="report-title" class="card-title">File a report</h2>
+
+        <fieldset class="group">
+          <legend>What is the status?</legend>
+          <div class="status-grid" id="status-grid">
+            <label class="status-opt s-in_progress">
+              <input type="radio" name="status" value="in_progress">
+              <span class="status-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+              <span><b>Start search</b><small>Crew is on site, searching</small></span>
+            </label>
+            <label class="status-opt s-searched_clear">
+              <input type="radio" name="status" value="searched_clear">
+              <span class="status-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span>
+              <span><b>Searched – clear</b><small>No one found, structure checked</small></span>
+            </label>
+            <label class="status-opt s-needs_usar">
+              <input type="radio" name="status" value="needs_usar">
+              <span class="status-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/></svg></span>
+              <span><b>Needs USAR / heavy rescue</b><small>Escalate: entrapment or unsafe</small></span>
+            </label>
+            <label class="status-opt s-done">
+              <input type="radio" name="status" value="done">
+              <span class="status-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V4h11l-1 4h6v9h-9l1-4H4"/></svg></span>
+              <span><b>Done</b><small>Task complete, leaving site</small></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>Hazards on site</legend>
+          <div class="hazard-grid" id="hazard-grid"></div>
+        </fieldset>
+
+        <label class="field">
+          <span>Notes</span>
+          <textarea id="report-notes" rows="3" maxlength="4000" placeholder="Voids found, people accounted for, access route…"></textarea>
+        </label>
+
+        <div class="group">
+          <div class="group-head">
+            <span class="legend">Photos <small id="photo-count">0 / 6</small></span>
+          </div>
+          <div class="photos" id="photo-grid">
+            <label class="photo-add" id="photo-add">
+              <input id="photo-input" type="file" accept="image/*" capture="environment" multiple>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+              <span>Add photo</span>
+            </label>
+          </div>
+          <p class="fine">Photos are shrunk on the phone to save data and stay queued until sent.</p>
+        </div>
+
+        <label class="toggle">
+          <input type="checkbox" id="attach-gps" checked>
+          <span class="toggle-ui" aria-hidden="true"></span>
+          <span class="toggle-text"><b>Attach my location</b><small id="gps-status">Uses this phone's GPS</small></span>
+        </label>
+        <p id="report-error" class="form-error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <!-- Outbox -->
+    <section id="view-outbox" class="view" aria-labelledby="outbox-title" hidden>
+      <div class="list-head">
+        <div>
+          <h1 id="outbox-title">Outbox</h1>
+          <p class="muted" id="outbox-sub">Reports saved on this phone that the server has not confirmed yet.</p>
+        </div>
+      </div>
+      <ul id="outbox-list" class="outbox-list"></ul>
+      <div id="outbox-empty" class="empty" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        <h2>Everything is synced</h2>
+        <p class="muted">All reports from this phone have reached the server.</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="actionbar" id="actionbar" aria-label="Actions" hidden>
+    <div class="ab-set" id="ab-list">
+      <button type="button" class="ab-btn" id="ab-refresh">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3.9M4 4v4h4M4 13a8 8 0 0 0 14.9 3.9M20 20v-4h-4"/></svg>
+        <span>Refresh</span>
+      </button>
+      <button type="button" class="ab-btn" id="ab-sync">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <span>Sync now</span>
+      </button>
+      <button type="button" class="ab-btn" id="ab-outbox">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h5l1 3h6l1-3h5"/><path d="M5 13 7 5h10l2 8v6H5z"/></svg>
+        <span>Outbox</span>
+        <b class="badge" id="outbox-badge" hidden>0</b>
+      </button>
+    </div>
+    <div class="ab-set" id="ab-detail" hidden>
+      <button type="button" class="ab-btn ab-back" id="ab-back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        <span>Tasks</span>
+      </button>
+      <button type="submit" form="report-form" class="btn primary big ab-main" id="ab-submit" disabled>Choose a status</button>
+    </div>
+    <div class="ab-set" id="ab-outbox-set" hidden>
+      <button type="button" class="ab-btn ab-back" id="ab-back2">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        <span>Tasks</span>
+      </button>
+      <button type="button" class="btn primary big ab-main" id="ab-sync2">Sync now</button>
+    </div>
+  </nav>
+
+  <div id="toast" class="toast" role="alert" aria-live="assertive" hidden></div>
+</body>
+</html>

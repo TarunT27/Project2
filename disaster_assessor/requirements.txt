@@ -1,3 +1,4 @@
+# Everything in the core platform plus real model inference and training.
 -r requirements-demo.txt
 ultralytics>=8.3,<9
 torch>=2.5,<3

@@ -11,3 +11,4 @@ __pycache__/
 disaster_assessor/data/
 disaster_assessor/datasets/
 disaster_assessor/runs/
+.playwright-mcp/

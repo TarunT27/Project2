@@ -60,9 +60,18 @@ def build_detector(mode, threshold, settings, device=None):
     raise ValueError(f"Unknown inference mode {mode!r}.")
 
 
+def _trained_imgsz(path, default=640):
+    """Run inference at the resolution the model was trained at (recorded by training/train.py)."""
+    sidecar = Path(path).with_suffix(".json")
+    try:
+        return int(json.loads(sidecar.read_text()).get("imgsz") or default)
+    except (OSError, ValueError, TypeError, AttributeError):
+        return default
+
+
 @lru_cache(maxsize=2)
 def _cached_single(path, _mtime, threshold, device):
-    return DamageDetector(False, path, threshold, device)
+    return DamageDetector(False, path, threshold, device, imgsz=_trained_imgsz(path))
 
 
 @lru_cache(maxsize=2)

@@ -22,7 +22,7 @@ def canonical_label(name):
 
 class DamageDetector:
     def __init__(
-        self, use_mock=True, model_path=None, confidence_threshold=0.5, device="cpu"
+        self, use_mock=True, model_path=None, confidence_threshold=0.5, device="cpu", imgsz=640
     ):
         if not 0 <= confidence_threshold <= 1:
             raise ValueError("Confidence threshold must be between 0 and 1")
@@ -32,6 +32,7 @@ class DamageDetector:
             device,
         )
         self.model = None
+        self.imgsz = int(imgsz)
         if not use_mock:
             if not model_path or not Path(model_path).is_file():
                 raise ValueError(
@@ -68,7 +69,7 @@ class DamageDetector:
             result = self.model.predict(
                 source=rgb,
                 conf=self.confidence_threshold,
-                imgsz=640,
+                imgsz=self.imgsz,
                 device=self.device,
                 verbose=False,
                 max_det=100,

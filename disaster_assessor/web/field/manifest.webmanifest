@@ -1,0 +1,16 @@
+{
+  "name": "DRA Field",
+  "short_name": "DRA Field",
+  "description": "Rescue task list and offline field reports for disaster response crews.",
+  "id": "/field/",
+  "start_url": "/field/",
+  "scope": "/field/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e0f11",
+  "theme_color": "#0e0f11",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    { "src": "/static/field/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

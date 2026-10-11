@@ -28,12 +28,16 @@ def _hash(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def incident_for_token(token):
+def link_for_token(token):
     with db.connect() as conn:
         row = db.one(conn, "SELECT * FROM share_links WHERE token_hash = ?", (_hash(token),))
     if not row or row["revoked"] or row["expires_at"] < db.now():
         raise HTTPException(404, "This share link is invalid or has expired.")
-    return row["incident_id"]
+    return row
+
+
+def incident_for_token(token):
+    return link_for_token(token)["incident_id"]
 
 
 @router.post("/incidents/{incident_id}/share")
@@ -75,7 +79,8 @@ def revoke_share(link_id: str, user=Depends(auth.require("coordinator"))):
 
 @router.get("/public/{token}")
 def public_incident(token: str):
-    incident_id = incident_for_token(token)
+    link = link_for_token(token)
+    incident_id = link["incident_id"]
     with db.connect() as conn:
         incident = get_or_404(conn, "incidents", incident_id)
         info = summary(conn, incident_id)
@@ -85,7 +90,8 @@ def public_incident(token: str):
     return {"incident": {k: incident[k] for k in ("id", "name", "description", "center_lat", "center_lon", "status")},
             "summary": info, "overlays": [{"id": o["id"], "kind": o["kind"], "name": o["name"],
                                            "bounds": db.loads(o["bounds_json"])} for o in overlays],
-            "config": {"tile_url": get_config().tile_url, "tile_attribution": get_config().tile_attribution}}
+            "config": {"tile_url": get_config().tile_url, "tile_attribution": get_config().tile_attribution},
+            "generated_at": db.now(), "expires_at": link["expires_at"], "label": link["label"]}
 
 
 @router.get("/public/{token}/observations")

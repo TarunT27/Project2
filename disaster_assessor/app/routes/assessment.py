@@ -11,6 +11,7 @@ from utils.geo_utils import valid_coordinate
 from utils.pipeline import IMAGE_TYPES, VIDEO_TYPES
 
 from .. import auth, db, storage
+from ..config import get_config
 from ..common import (CLASSES, OBS_SELECT, clean_hazards, get_or_404, image_out, observation_out, run_out)
 from ..events import bus
 from ..jobs import runner
@@ -77,6 +78,9 @@ async def create_run(
         raise HTTPException(400, "Add at least one image, video or GeoTIFF.")
     if len(files) > MAX_FILES:
         raise HTTPException(413, f"Limit a run to {MAX_FILES} files.")
+    if mode == "two_stage":  # server-wide defaults from DRA_BUILDING_MODEL / DRA_DAMAGE_MODEL
+        building_model = building_model or get_config().building_model
+        damage_model = damage_model or get_config().damage_model
     settings = {"interval": interval, "max_frames": max_frames, "manual": manual, "vision_review": vision_review,
                 "builtin_demo": builtin_demo, "model": model, "building_model": building_model,
                 "damage_model": damage_model, "device": device}

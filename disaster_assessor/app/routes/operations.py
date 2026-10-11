@@ -1,6 +1,7 @@
 """Crews, rescue tasks, route planning and field reports (with offline-sync idempotency)."""
 
 import json
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -251,7 +252,13 @@ def my_tasks(user=Depends(auth.current_user)):
         else:
             rows = []
         incidents = {r["id"]: r["name"] for r in db.all_rows(conn, "SELECT id, name FROM incidents")}
-    out = [dict(task_out(r), incident=incidents.get(r["incident_id"])) for r in rows]
+        photos = {}
+        if rows:
+            marks = ",".join("?" * len(rows))
+            for p in db.all_rows(conn, f"SELECT id, task_id FROM images WHERE task_id IN ({marks}) ORDER BY id",
+                                 tuple(r["id"] for r in rows)):
+                photos.setdefault(p["task_id"], []).append(p["id"])
+    out = [dict(task_out(r), incident=incidents.get(r["incident_id"]), photo_ids=photos.get(r["id"], [])) for r in rows]
     return {"tasks": out, "crews": sorted(crews), "server_time": db.now()}
 
 
@@ -292,7 +299,9 @@ async def field_report(
             "longitude": longitude, "reported_at": reported_at[:40] or db.now(), "created_at": db.now(),
         })
         merged = sorted(set(db.loads(row["hazards_json"], [])) | set(hazard_list))
-        note_line = f"[{db.now()[:16]} {user['name']}] {status.replace('_', ' ')}" + (f": {notes.strip()}" if notes.strip() else "")
+        # Stamp with when the crew made the report (offline reports may sync much later).
+        stamp = reported_at[:16] if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*", reported_at or "") else db.now()[:16]
+        note_line = f"[{stamp.replace('T', ' ')} {user['name']}] {status.replace('_', ' ')}" + (f": {notes.strip()}" if notes.strip() else "")
         db.update(conn, "tasks", task_id, {"status": status, "hazards_json": json.dumps(merged),
                                            "notes": (row["notes"] + "\n" + note_line).strip(), "updated_at": db.now()})
     for index, photo in enumerate(photos):

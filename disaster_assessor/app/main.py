@@ -79,7 +79,8 @@ async def security(request: Request, call_next):
                 return JSONResponse({"error": "Cross-site request refused."}, status_code=403)
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    # OSM tile servers require a Referer; send only the origin so share tokens in paths never leak.
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Permissions-Policy", "camera=(self), geolocation=(self), microphone=()")
     if not request.url.path.startswith("/api/"):

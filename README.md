@@ -1,20 +1,18 @@
 # Rapid Disaster Assessment & Rescue Planner
 
-Upload drone footage or damage photos, get color-coded damage observations on a map, and export a severity-ranked review list (CSV / GeoJSON).
+A self-hosted platform for community emergency response. It takes drone footage, photos and orthomosaics, detects and maps building damage, and supports human review. It turns high-priority buildings into crew tasks with an offline field app, and exports situation reports or shares a read-only view with partner agencies.
 
-![Mission console](disaster_assessor/design/console-desktop.png)
+![Console](disaster_assessor/design/console-desktop.png)
 
 ```sh
 cd disaster_assessor
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-demo.txt
-python server.py            # open http://127.0.0.1:8000
+python server.py            # open http://127.0.0.1:8000 and create the admin account
 ```
 
-Click **Load synthetic demo**, or drop images/video onto the viewport. Use Python 3.11+.
+Or run `docker compose up -d` from `disaster_assessor/`.
 
-- **Mission console** (`server.py` + `web/`): a dark, drone-style dashboard with a viewport and HUD, a telemetry card, a severity dial, a rescue map and exports.
-- **Classic Streamlit app** (`streamlit run app.py`): the original three-tab interface. Both front ends share the same pipeline.
+Full documentation covering workflow, roles, locations, models, configuration and security is in [disaster_assessor/README.md](disaster_assessor/README.md). Model training is in [disaster_assessor/training/README.md](disaster_assessor/training/README.md).
 
-For real YOLO inference, run `pip install -r requirements.txt` and supply trusted, damage-trained weights. See [the application README](disaster_assessor/README.md) for model requirements, geolocation limits, and verification. No damage-trained checkpoint is bundled.
+No damage-trained model is bundled. Demo mode uses synthetic detections, and real use requires trusted, validated weights.
