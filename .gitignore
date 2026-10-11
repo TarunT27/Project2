@@ -12,3 +12,6 @@ disaster_assessor/data/
 disaster_assessor/datasets/
 disaster_assessor/runs/
 .playwright-mcp/
+
+# Local secrets (ANTHROPIC_API_KEY etc.)
+.env

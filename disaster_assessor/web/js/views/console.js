@@ -15,6 +15,13 @@ const st = { idx: 0, filter: "all", minConf: 0.5, hidden: new Set(), boxes: true
 function prefs() {
   try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); } catch { return {}; }
 }
+const claudeReady = () => !!(ctx && ctx.store.config.integrations && ctx.store.config.integrations.claude_detect);
+// Default to Claude vision when the server has a key; otherwise the synthetic demo detector.
+function mode(p = prefs()) {
+  if (p.mode === "claude" && !claudeReady()) return "demo";
+  return p.mode || (claudeReady() ? "claude" : "demo");
+}
+
 function savePrefs(p) { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ ...prefs(), ...p })); } catch { /* private mode */ } }
 
 const images = () => ctx.store.data.images.filter((i) => i.kind !== "field_photo");
@@ -266,7 +273,7 @@ function renderUnit() {
   const p = prefs(), run = activeRun(), lastRun = ctx.store.data.runs[0], q = st.queue.length;
   const rows = visible(), high = rows.filter((o) => SEVERITY[o.damage_class] >= 2).length;
   const canRun = ctx.store.can("reviewer");
-  const modeName = { demo: "Synthetic demo detector", single: "YOLO damage model", two_stage: "Two-stage YOLO" }[p.mode || "demo"];
+  const modeName = { demo: "Synthetic demo detector", claude: "Claude vision detector", single: "YOLO damage model", two_stage: "Two-stage YOLO" }[mode(p)];
   $("#unit", host).innerHTML = `
     <div class="unit-head">
       <div><h3>${esc(modeName)}</h3><p class="sub">${esc(modelLine(p))}</p></div>
@@ -312,7 +319,8 @@ function renderUnit() {
 }
 
 function modelLine(p) {
-  if ((p.mode || "demo") === "demo") return "Synthetic boxes · no model loaded";
+  if (mode(p) === "demo") return claudeReady() ? "Synthetic boxes · switch to Claude under SET" : "Synthetic boxes · add ANTHROPIC_API_KEY for Claude";
+  if (mode(p) === "claude") return "Finds buildings, classifies damage, explains why";
   if (p.mode === "single") return `${p.model || "choose a model"} · ${(p.device || "cpu").toUpperCase()}`;
   return `${p.building_model || "building?"} → ${p.damage_model || "damage?"}`;
 }
@@ -324,8 +332,11 @@ async function runSettings() {
   const fd = await modal({
     title: "Assessment settings", submit: "Save settings", wide: true,
     body: `<div class="segmented full" id="mode-seg">
-        ${["demo", "single", "two_stage"].map((m) => `<label class="seg ${(p.mode || "demo") === m ? "active" : ""}"><input type="radio" name="mode" value="${m}" ${(p.mode || "demo") === m ? "checked" : ""}>${{ demo: "Demo · synthetic", single: "Single YOLO model", two_stage: "Two-stage (building → damage)" }[m]}</label>`).join("")}
+        ${["claude", "demo", "single", "two_stage"].map((m) => `<label class="seg ${mode(p) === m ? "active" : ""}${m === "claude" && !info.claude_detect ? " dim" : ""}"><input type="radio" name="mode" value="${m}" ${mode(p) === m ? "checked" : ""} ${m === "claude" && !info.claude_detect ? "disabled" : ""}>${{ claude: "Claude vision", demo: "Demo · synthetic", single: "Single YOLO", two_stage: "Two-stage YOLO" }[m]}</label>`).join("")}
       </div>
+      <p class="note ${info.claude_detect ? "" : "warn"}">${info.claude_detect
+        ? `Claude vision (${esc(info.claude_model || "")}) finds each building, draws a box, picks a damage class and explains the visible evidence. Images are sent to the Anthropic API; large aerial mosaics are split into overlapping tiles. Estimated cost: roughly 5–15¢ per photo, ~50¢ per aerial mosaic; each run records its actual cost.`
+        : "Claude vision is off: add ANTHROPIC_API_KEY to disaster_assessor/.env and restart the server."}</p>
       ${info.models.length ? "" : `<p class="note warn">No model weights in the models folder yet. Train one (see training/README.md) or copy trusted .pt files there; only demo mode is available until then.</p>`}
       <div class="two">
         <label class="field">Single model (4 damage classes)<select name="model"><option value="">—</option>${opts(p.model)}</select></label>
@@ -364,9 +375,9 @@ async function runsHistory() {
   const rows = ctx.store.data.runs.map((r) => `<tr><td>#${r.id}</td><td>${esc(r.mode)}</td><td>${esc(r.model)}</td>
     <td><span class="pill status" style="--c:${{ done: "#16a34a", failed: "#dc2626", running: "#5aa9e6", queued: "#9a9fa8", cancelled: "#6b7079" }[r.status]}">${esc(r.status)}</span></td>
     <td>${r.observations ?? 0}</td><td>${pct(r.threshold)}</td><td class="dim">${esc(r.created_by || "")}</td><td class="dim">${new Date(r.created_at).toLocaleString()}</td>
-    <td class="dim">${r.errors.length ? `<span title="${esc(r.errors.join("\n"))}">${plural(r.errors.length, "error")}</span>` : ""}</td></tr>`).join("");
+    <td class="dim">${esc(r.message || "")}${r.errors.length ? ` · <span title="${esc(r.errors.join("\n"))}">${plural(r.errors.length, "error")}</span>` : ""}</td></tr>`).join("");
   await modal({ title: "Assessment runs", submit: null, wide: true,
-    body: rows ? `<div class="table-wrap"><table><thead><tr><th>Run</th><th>Mode</th><th>Model</th><th>Status</th><th>Obs.</th><th>Threshold</th><th>By</th><th>Started</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+    body: rows ? `<div class="table-wrap"><table><thead><tr><th>Run</th><th>Mode</th><th>Model</th><th>Status</th><th>Obs.</th><th>Threshold</th><th>By</th><th>Started</th><th>Result</th></tr></thead><tbody>${rows}</tbody></table></div>`
       : `<p class="muted">No runs yet.</p>` });
 }
 
@@ -380,7 +391,7 @@ function queueFiles(list) {
 
 function runForm(extra = {}) {
   const p = prefs(), fd = new FormData();
-  const fields = { mode: p.mode || "demo", threshold: String(st.minConf), model: p.model || "", building_model: p.building_model || "",
+  const fields = { mode: mode(p), threshold: String(st.minConf), model: p.model || "", building_model: p.building_model || "",
     damage_model: p.damage_model || "", device: p.device || "", interval: String(p.interval || 3), max_frames: String(p.max_frames || 8),
     vision_review: String(!!p.vision_review), ...extra };
   if (p.manual_on && p.manual_lat !== "" && p.manual_lon !== "") { fields.manual_lat = p.manual_lat; fields.manual_lon = p.manual_lon; }

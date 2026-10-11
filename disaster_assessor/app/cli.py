@@ -42,7 +42,16 @@ def list_models(_args):
         print(f"  {m['name']}  {m['size_mb']} MB  task={m['task']}  classes={m['classes']}")
 
 
+def seed_demo(args):
+    from .demo_seed import seed
+
+    seed(detector=args.detector, if_empty=args.if_empty)
+
+
 def main(argv=None):
+    from .config import load_dotenv
+
+    load_dotenv()
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(required=True)
     p = sub.add_parser("create-user", help="Add a user (e.g. recover a lost admin login)")
@@ -58,6 +67,10 @@ def main(argv=None):
     p.add_argument("days", type=int)
     p.add_argument("--apply", action="store_true", help="Actually delete (default is a dry run)")
     p.set_defaults(func=retention)
+    p = sub.add_parser("seed-demo", help="Create the Hurricane Ian judge-demo incident from bundled NOAA imagery")
+    p.add_argument("--detector", choices=("claude", "demo"), default="claude")
+    p.add_argument("--if-empty", action="store_true", help="Do nothing if any incident already exists")
+    p.set_defaults(func=seed_demo)
     p = sub.add_parser("models", help="List model weights available to the app")
     p.set_defaults(func=list_models)
     args = parser.parse_args(argv)

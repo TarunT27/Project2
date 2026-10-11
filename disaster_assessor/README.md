@@ -12,6 +12,10 @@ A self-hosted platform that takes a response team from raw drone and phone image
 
 ## 1. Run it
 
+**Judge demo (fastest):** put `ANTHROPIC_API_KEY=...` in `disaster_assessor/.env`, then run `./start-demo.sh`. It sets up Python, seeds a Hurricane Ian incident from real NOAA aerial imagery analysed by Claude, and opens the app. The 5-minute walkthrough is in [DEMO.md](DEMO.md).
+
+**Manual:**
+
 ```sh
 cd disaster_assessor
 python3 -m venv .venv && source .venv/bin/activate
@@ -75,7 +79,13 @@ Footprint matching assigns each located observation to the containing building (
 
 ## 5. Models
 
-No damage-trained weights are bundled, and standard COCO `yolov8n.pt`/YOLO11 weights are rejected because they don't classify damage. There are two supported paths:
+**Claude vision (default when `ANTHROPIC_API_KEY` is set):**
+- Claude Opus 5.5 finds each building and returns a box, a damage class on the xBD scale, a confidence, the visible evidence and hazards. The evidence is shown in Review as "Claude's assessment".
+- It works on drone, aerial and phone photos with no GPU or training. Large aerial mosaics are split into overlapping 1280 px tiles and the boxes are merged.
+- Each run records its token usage and estimated cost. It needs internet, and images are sent to the Anthropic API.
+- Accuracy hasn't been measured against a benchmark; treat results as a first pass for human review.
+
+**Trained models:** no damage-trained weights are bundled, and standard COCO `yolov8n.pt`/YOLO11 weights are rejected because they don't classify damage. There are two supported paths:
 
 - **Two-stage (recommended):** a building detector, then a damage classifier on each crop. Train both on xBD/xView2 with `training/` (see [training/README.md](training/README.md)), copy the `.pt` files into `models/`, and pick them under console **SET**. You can also set `DRA_BUILDING_MODEL`/`DRA_DAMAGE_MODEL`.
 - **Single model:** one YOLO detection model whose four classes are `No Damage`, `Minor Damage`, `Major Damage`, `Destroyed`.
@@ -86,10 +96,12 @@ Weights load only from the `models/` folder, because PyTorch checkpoints can exe
 
 ## 6. Configuration (environment variables)
 
+`server.py` and the CLI read `disaster_assessor/.env` first (copy `.env.example`). Real environment variables take precedence.
+
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `HOST` / `PORT` | `127.0.0.1` / `8000` | bind address |
-| `DRA_NO_LOGIN` | off | `1` = single-user local mode: no sign-in, you are the built-in local admin. Only allowed on a localhost bind and only answers requests addressed to localhost; never use it behind a reverse proxy |
+| `DRA_NO_LOGIN` | off (on in `.env.example`) | `1` = single-user local mode: no sign-in, you are the built-in local admin. Only allowed on a localhost bind and only answers requests addressed to localhost; never use it behind a reverse proxy |
 | `DRA_DATA_DIR` | `./data` | database, imagery, backups |
 | `DRA_MODELS_DIR` | `./models` | allowed model weights |
 | `DRA_DEVICE` | `cpu` | `cpu`, `mps` (Apple), `cuda:0` |
@@ -101,7 +113,9 @@ Weights load only from the `models/` folder, because PyTorch checkpoints can exe
 | `DRA_OSRM_URL` | — | road routing ([OSRM](https://project-osrm.org)) |
 | `DRA_SLACK_WEBHOOK` | — | alert when Destroyed is detected |
 | `DRA_WEBHOOK_URL` / `DRA_WEBHOOK_SECRET` | — | signed JSON webhook (`X-DRA-Signature`, HMAC-SHA256) |
-| `ANTHROPIC_API_KEY`, `DRA_VISION_MODEL` | — | Claude second opinion |
+| `ANTHROPIC_API_KEY` | — | Claude vision detection and second opinion (put it in `disaster_assessor/.env`, which is git-ignored) |
+| `DRA_DETECT_MODEL` / `DRA_DETECT_EFFORT` | `claude-opus-5-5` / `medium` | Claude vision detector model and effort |
+| `DRA_VISION_MODEL` | `claude-opus-5-5` | second-opinion model |
 | `DRA_RETENTION_DAYS` | off | daily deletion of closed incidents older than N days |
 | `DRA_KEEP_UPLOADS` | off | keep raw uploads after processing |
 | `DRA_ALLOWED_ORIGINS` | — | extra origins allowed to POST (comma-separated) |

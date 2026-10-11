@@ -213,9 +213,10 @@ function renderPanel() {
       <button class="btn primary" id="act-confirm" ${ro ? "disabled" : ""}>${icon("check", 15)} Confirm <kbd>C</kbd></button>
       <button class="btn danger" id="act-reject" ${ro ? "disabled" : ""}>${icon("x", 15)} Reject <kbd>X</kbd></button>
     </div>
-    ${v ? `<div class="vision${v.error ? " err" : ""}"><p class="vision-head">${icon("sparkle", 14)} Claude second opinion</p>
+    ${v ? `<div class="vision${v.error ? " err" : ""}"><p class="vision-head">${icon("sparkle", 14)} ${v.source === "detector" ? "Claude's assessment" : "Claude second opinion"}</p>
       ${v.error ? `<p class="sub">${esc(v.rationale)}</p>` : `<p>${classPill(v.damage_class === "Uncertain" ? "Uncertain" : v.damage_class)} <span class="mono">${pct(v.confidence)}</span>
-      ${v.damage_class !== "Uncertain" && v.damage_class !== o.model_class ? `<span class="chip warn">disagrees with model</span>` : ""}</p>
+      ${v.source !== "detector" && v.damage_class !== "Uncertain" && v.damage_class !== o.model_class ? `<span class="chip warn">disagrees with model</span>` : ""}
+      ${v.source === "detector" && v.damage_class !== o.damage_class ? `<span class="chip">reviewer changed the class</span>` : ""}</p>
       <p class="sub">${esc(v.rationale)}</p>${(v.hazards || []).length ? `<p>${v.hazards.map((h) => `<span class="chip warn">${esc(HAZARDS[h] || h)}</span>`).join("")}</p>` : ""}`}</div>` : ""}
     <h4 class="group-label">HAZARDS</h4>
     <div class="hazard-grid">${Object.entries(HAZARDS).map(([k, label]) => `<label class="hz"><input type="checkbox" value="${k}" ${o.hazards.includes(k) ? "checked" : ""} ${ro ? "disabled" : ""}><span>${esc(label)}</span></label>`).join("")}</div>

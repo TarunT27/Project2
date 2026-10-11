@@ -13,6 +13,8 @@ python server.py            # open http://127.0.0.1:8000 and create the admin ac
 
 Or run `docker compose up -d` from `disaster_assessor/`.
 
+**Demoing to judges?** Add `ANTHROPIC_API_KEY` to `disaster_assessor/.env` and run `disaster_assessor/start-demo.sh`. Claude vision analyses real NOAA Hurricane Ian aerial imagery of Fort Myers Beach. The walkthrough is in [disaster_assessor/DEMO.md](disaster_assessor/DEMO.md).
+
 Full documentation covering workflow, roles, locations, models, configuration and security is in [disaster_assessor/README.md](disaster_assessor/README.md). Model training is in [disaster_assessor/training/README.md](disaster_assessor/training/README.md).
 
-No damage-trained model is bundled. Demo mode uses synthetic detections, and real use requires trusted, validated weights.
+Detection runs on Claude vision (with an API key) or your own trained YOLO weights; none are bundled. Results are a first pass for human review, not validated accuracy.

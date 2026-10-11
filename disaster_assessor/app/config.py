@@ -11,6 +11,29 @@ ROOT = Path(__file__).resolve().parents[1]
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1", "[::1]"}
 
 
+def load_dotenv(path=None):
+    """Read KEY=VALUE lines from disaster_assessor/.env into the environment (real env vars win).
+
+    Called by server.py and the CLI only, never on import, so tests can't pick up a real API key.
+    """
+    path = Path(path or ROOT / ".env")
+    if not path.is_file():
+        return []
+    loaded = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip().removeprefix("export ").strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+            loaded.append(key)
+    get_config.cache_clear()
+    return loaded
+
+
 def _bool(name, default=False):
     value = os.environ.get(name)
     return default if value is None else value.strip().lower() in {"1", "true", "yes", "on"}

@@ -274,6 +274,40 @@ class PlatformTests(unittest.TestCase):
         self.assertEqual(len(overlays), 1)
         self.assertEqual(self.client.get(f"/api/overlays/{overlays[0]['id']}/file").status_code, 200)
 
+    def test_claude_mode_run_records_reasoning_and_cost(self):
+        from unittest.mock import patch
+        from app.services import claude_detector, models
+        from tests.test_claude_detector import FakeClient
+
+        inc = self.new_incident("Claude incident", 29.95, -90.07)
+        url = f"/api/incidents/{inc['id']}/runs"
+        tif = ("files", ("ian.tif", geotiff_4326(size=(2600, 1800)), "image/tiff"))
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+            r = self.client.post(url, data={"mode": "claude"}, files=[tif])
+            self.assertEqual(r.status_code, 400)
+            self.assertIn("ANTHROPIC_API_KEY", r.json()["error"])
+            os.environ["ANTHROPIC_API_KEY"] = "test-not-a-real-key"
+            fake = FakeClient()
+            real_build = models.build_detector
+            with patch.object(models, "build_detector", lambda mode, *a, **k: claude_detector.ClaudeDetector(
+                    0.5, client=fake) if mode == "claude" else real_build(mode, *a, **k)):
+                r = self.client.post(url, data={"mode": "claude"}, files=[tif])
+                self.assertEqual(r.status_code, 200, r.text)
+                run = self.wait_run(r.json()["id"])
+        self.assertEqual(run["status"], "done", run)
+        self.assertIn("Claude:", run["message"])
+        self.assertIn("usage", run["settings"])
+        self.assertGreater(len(fake.requests), 1)  # tiled
+        obs = self.client.get(f"/api/incidents/{inc['id']}/observations").json()
+        self.assertTrue(obs)
+        for o in obs:
+            self.assertFalse(o["is_demo"])
+            self.assertEqual(o["location_source"], "ortho_georef")
+            self.assertEqual(o["vision"]["source"], "detector")
+            self.assertEqual(o["vision"]["rationale"], "Only a slab remains")
+            self.assertTrue(o["model"].startswith("Claude vision"))
+
     def test_run_validation_and_model_safety(self):
         inc = self.new_incident("Validation incident")
         url = f"/api/incidents/{inc['id']}/runs"

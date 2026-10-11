@@ -148,6 +148,14 @@ class Job:
             self._match_footprints()
             self._vision_review()
             status, message = "done", f"{self.observation_count} observations"
+            usage = getattr(getattr(self, "detector", None), "usage", None)
+            if usage and usage.get("calls"):
+                cost = self.detector.cost_usd()
+                message += f" · Claude: {usage['calls']} calls, ~${cost:.2f}"
+                if usage.get("refusals") or usage.get("errors"):
+                    message += f" ({usage['refusals']} declined, {usage['errors']} failed)"
+                self.settings["usage"] = dict(usage, cost_usd=cost)
+                self._set(settings_json=json.dumps(self.settings))
         except Cancelled:
             status, message = "cancelled", "Cancelled"
         except Exception as exc:
@@ -273,8 +281,19 @@ class Job:
 
         self._limit()
         with Image.open(io.BytesIO(payload)) as full:
-            small, scale = ortho.downsample_for_inference(full.convert("RGB"), 1600)
-        predictions = self.detector.predict(small)
+            full_rgb = full.convert("RGB")
+            small, scale = ortho.downsample_for_inference(full_rgb, 1600)
+            if getattr(self.detector, "supports_tiling", False):
+                # Tiled detectors see the mosaic at higher resolution; boxes come back in that space.
+                big, big_scale = ortho.downsample_for_inference(full_rgb, self.detector.max_input_side)
+                factor = big_scale / scale
+                predictions = []
+                for det in self.detector.predict(big, tiled=True):
+                    predictions.append(dict(det, bbox=[int(round(v * factor)) for v in det["bbox"]]))
+            else:
+                predictions = None
+        if predictions is None:
+            predictions = self.detector.predict(small)
         self.samples += 1
         detections = []
         for det in predictions:
@@ -321,6 +340,10 @@ class Job:
                     "longitude": lon if valid_coordinate(lat, lon) else None,
                     "location_source": source if valid_coordinate(lat, lon) else "missing",
                     "is_demo": 1 if det.get("is_demo") else 0, "model": self.run["model"], "threshold": self.threshold,
+                    "vision_json": json.dumps({
+                        "damage_class": det["label"], "confidence": det["confidence"], "rationale": det["rationale"],
+                        "hazards": det.get("hazards", []), "model": det.get("model"), "source": "detector",
+                    }) if det.get("rationale") else None,
                     "created_at": db.now(),
                 }))
                 self.observation_count += 1
@@ -350,8 +373,8 @@ class Job:
             match_and_store(self.incident["id"], footprints, run_id=self.run_id)
 
     def _vision_review(self):
-        if not self.settings.get("vision_review"):
-            return
+        if not self.settings.get("vision_review") or self.run["mode"] == "claude":
+            return  # Claude-mode detections already carry Claude's reasoning
         try:
             from . import vision_review
         except ImportError:  # pragma: no cover

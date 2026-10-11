@@ -6,7 +6,11 @@ Command-line tools: python -m app.cli --help
 
 import os
 
-from app.main import app  # noqa: F401  (uvicorn server:app)
+from app.config import load_dotenv
+
+load_dotenv()  # disaster_assessor/.env (e.g. ANTHROPIC_API_KEY, DRA_NO_LOGIN) before the app reads config
+
+from app.main import app  # noqa: E402,F401  (uvicorn server:app)
 
 if __name__ == "__main__":
     import uvicorn

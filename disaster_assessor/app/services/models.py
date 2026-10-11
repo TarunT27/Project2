@@ -8,7 +8,7 @@ from utils.detector import DamageDetector
 
 from ..config import get_config
 
-MODES = ("demo", "single", "two_stage")
+MODES = ("demo", "claude", "single", "two_stage")
 
 
 def available_models():
@@ -40,6 +40,9 @@ def model_path(name):
 def describe(mode, settings):
     if mode == "demo":
         return "synthetic-demo"
+    if mode == "claude":
+        from .claude_detector import model_id
+        return f"Claude vision · {model_id()}"
     if mode == "single":
         return settings.get("model") or ""
     return f"{settings.get('building_model')} + {settings.get('damage_model')}"
@@ -49,6 +52,9 @@ def build_detector(mode, threshold, settings, device=None):
     device = device or settings.get("device") or get_config().device
     if mode == "demo":
         return DamageDetector(True, confidence_threshold=threshold)
+    if mode == "claude":
+        from .claude_detector import ClaudeDetector
+        return ClaudeDetector(confidence_threshold=threshold)  # fresh per run so usage/cost is per run
     if mode == "single":
         path = model_path(settings.get("model"))
         return _cached_single(str(path), path.stat().st_mtime_ns, threshold, device)

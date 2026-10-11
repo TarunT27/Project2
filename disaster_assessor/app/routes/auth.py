@@ -36,6 +36,7 @@ def client_config():
         "integrations": {
             "osrm": bool(cfg.osrm_url), "slack": bool(cfg.slack_webhook), "webhook": bool(cfg.webhook_url),
             "vision_review": vision_review_status(),
+            "claude_detect": vision_review_status(),
         },
     }
 

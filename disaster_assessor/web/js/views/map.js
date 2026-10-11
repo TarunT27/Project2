@@ -136,9 +136,9 @@ function popupFor(point) {
   const first = point.list[0];
   const items = point.list.slice(0, 12).map((o) => `<li><a href="${ctx.incidentPath("review", `?image=${o.image_id}&obs=${o.id}`)}">
     <span class="pip" style="background:${COLORS[o.damage_class]}"></span><b>${esc(SHORT[o.damage_class])}</b><span>${pct(o.confidence)}</span>
-    <em>${esc(o.status.replace("_", " "))}${o.hazards.length ? ` · ⚠ ${o.hazards.length}` : ""}</em></a></li>`).join("");
+    <em>${esc(o.status.replace("_", " "))}${o.hazards.length ? ` · ⚠ ${o.hazards.length}` : ""}${o.vision && o.vision.source === "detector" && o.vision.rationale ? ` · ${esc(o.vision.rationale)}` : ""}</em></a></li>`).join("");
   return `<div class="popup" style="width:260px">
-    <div class="tag">${first.is_demo ? "SYNTHETIC DEMO" : "MODEL OUTPUT · REVIEW STATUS SHOWN"}</div>
+    <div class="tag">${first.is_demo ? "SYNTHETIC DEMO" : first.vision && first.vision.source === "detector" ? "CLAUDE VISION · REVIEW STATUS SHOWN" : "MODEL OUTPUT · REVIEW STATUS SHOWN"}</div>
     <img src="/api/images/${first.image_id}/file?variant=preview" alt="Preview of ${esc(first.source_file || "")}">
     <h4>${plural(point.list.length, "observation")} at this point</h4>
     <ul class="pop-list">${items}</ul>
@@ -181,7 +181,7 @@ function drawBuildings() {
   L.geoJSON(st.footprints, {
     style: (f) => {
       const b = rolled.get(f.properties.id);
-      return b ? buildingStyle(b.damage_class, b.reviewed === b.count) : { color: "#5d626b", weight: 0.8, fillOpacity: 0.04, fillColor: "#9a9fa8" };
+      return b ? buildingStyle(b.damage_class, b.reviewed === b.count) : { color: "#e3e5e8", weight: 1, opacity: 0.55, fillOpacity: 0.04, fillColor: "#e3e5e8" };
     },
     onEachFeature: (f, layer) => {
       const b = rolled.get(f.properties.id);

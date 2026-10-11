@@ -26,7 +26,9 @@ ACCEPTED = IMAGE_TYPES | VIDEO_TYPES | {".srt"}
 
 @router.get("/models")
 def list_models(user=Depends(auth.current_user)):
-    return {"modes": models.MODES, "models": models.available_models(), "vision_review": vision_review_status()}
+    from ..services import claude_detector
+    return {"modes": models.MODES, "models": models.available_models(), "vision_review": vision_review_status(),
+            "claude_detect": claude_detector.is_configured(), "claude_model": claude_detector.model_id()}
 
 
 @router.get("/incidents/{incident_id}/runs")
@@ -78,6 +80,10 @@ async def create_run(
         raise HTTPException(400, "Add at least one image, video or GeoTIFF.")
     if len(files) > MAX_FILES:
         raise HTTPException(413, f"Limit a run to {MAX_FILES} files.")
+    if mode == "claude":
+        from ..services.claude_detector import is_configured as claude_ready
+        if not claude_ready():
+            raise HTTPException(400, "Claude vision needs ANTHROPIC_API_KEY. Add it to disaster_assessor/.env and restart.")
     if mode == "two_stage":  # server-wide defaults from DRA_BUILDING_MODEL / DRA_DAMAGE_MODEL
         building_model = building_model or get_config().building_model
         damage_model = damage_model or get_config().damage_model
